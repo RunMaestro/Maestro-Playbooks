@@ -168,6 +168,7 @@ Add your playbook entry to the `playbooks` array in `manifest.json`:
 | `loopEnabled` | Yes | `true` if playbook loops, `false` otherwise |
 | `maxLoops` | No | Loop limit (`null` for unlimited) |
 | `prompt` | Yes | Custom prompt string, or `null` for Maestro default |
+| `launch` | No | One-click launch support: the questions Maestro asks before a run, preconditions, and the outro shown when the run ends. See [Launch Support](#launch-support). Maestro versions without the launch flow ignore it, so Download keeps working everywhere. |
 
 ### When to set `minMaestroVersion`
 
@@ -190,6 +191,63 @@ Set `beta: true` while you are iterating publicly and want the exchange to flag 
 - Real-world testing has been narrow and you want explicit feedback before declaring stable.
 
 Remove the flag once the playbook has had at least one full release cycle without breaking changes and you are comfortable defaulting it for users.
+
+### Launch Support
+
+A playbook with a `launch` block gets a **Launch** button in the Exchange, next to Download. Launch asks the playbook's questions, lets the user pick the agent (or set up a new one), imports the playbook, runs it, removes the imported task documents when it finishes, and shows an outro. A playbook without `launch` stays download-only.
+
+**The questions fill in your existing configuration lines.** Each input's `name` must match a `**NAME:** `value`` line in the manifest `prompt` (the [outer prompt convention](CLAUDE.md#outer-prompt-convention)). At launch, Maestro rewrites the value inside the backticks of that line. Task documents keep reading `[NAME]` from the prompt as they do today. Never put `{{NAME}}` tokens for your own variables in documents: Maestro versions without the launch flow leave unknown tokens as literal text.
+
+```json
+"launch": {
+  "intro": "One or two sentences shown at the top of the launch form.",
+  "preconditions": {
+    "platforms": ["darwin"],
+    "requires": ["gh logged in", "Pushes commits to the pull request branch"],
+    "confirm": "Checkbox text the user must tick before Launch turns on.",
+    "maestroCli": "optional"
+  },
+  "inputs": [
+    { "name": "PR_URL", "label": "Pull request URL", "type": "url", "required": true, "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/\\d+/?$" },
+    { "name": "AUTO_FIX_SEVERITY", "label": "Fix these severities", "type": "multiselect", "options": [{ "value": "CRITICAL" }, { "value": "HIGH" }], "default": ["CRITICAL"] },
+    { "name": "COVERAGE_TARGET", "label": "Coverage target", "type": "number", "default": 80, "min": 1, "max": 100, "unit": "%", "advanced": true }
+  ],
+  "maxLoops": 10,
+  "outro": {
+    "title": "Shown as the outro heading",
+    "summary": "Markdown. {{INPUT_NAME}} and built-in variables such as {{AUTORUN_FOLDER}} are filled in.",
+    "nextSteps": ["Markdown bullet", "Another bullet"],
+    "files": [{ "label": "Summary", "path": "{{AUTORUN_FOLDER}}/SUMMARY.md" }],
+    "reportFile": "{{AUTORUN_FOLDER}}/SUMMARY.md"
+  }
+}
+```
+
+| Input field | Meaning |
+|-------------|---------|
+| `name` | `UPPER_SNAKE_CASE`, matching a configuration line in the prompt. Must not be a Maestro built-in such as `AGENT_NAME` or `DATE`. |
+| `type` | `text`, `textarea`, `url`, `path`, `number`, `boolean`, `select`, `multiselect` |
+| `default` | Written into the prompt when the user keeps it. A required input with no default must be answered. |
+| `options` | For `select` and `multiselect`: `[{ "value": "...", "label": "..." }]`. `label` is optional. |
+| `min`, `max`, `unit` | For `number`. `unit` is appended when the value is written (`80` with unit `%` becomes `80%`). |
+| `emptyValue` | For `multiselect`: what to write when nothing is picked (for example `none`). |
+| `pattern` | A regular expression the answer must match. |
+| `help`, `placeholder` | Shown under or inside the field. |
+| `advanced` | `true` puts the field in a collapsed Advanced section. |
+
+How answers are written into the prompt: a multiselect is joined with commas, a boolean becomes `yes` or `no`, and newlines in a `textarea` become spaces. An optional input left empty leaves its line unchanged.
+
+`preconditions.maestroCli` is required when your documents call `maestro-cli`: `required` if the playbook cannot work without it, `optional` if it only loses a finishing touch. In documents, write the fallback as `maestro-cli <args> || {{MAESTRO_CLI_PATH}} <args>`, never a hardcoded `/Applications/...` path.
+
+Do not raise the top-level `minMaestroVersion` for launch support. Older versions ignore `launch` and keep offering Download.
+
+### Validate Before You Open a PR
+
+```bash
+node scripts/validate-manifest.mjs
+```
+
+It checks required fields, that every listed document exists, that `Agent-Prompt.md` matches the manifest `prompt`, every `launch` block, and that no document hardcodes the macOS `maestro-cli` path. It needs only Node, with no install step.
 
 ### Document Array
 

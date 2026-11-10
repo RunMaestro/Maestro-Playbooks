@@ -92,9 +92,9 @@ This is the last document; the playbook does not loop.
 
       ```bash
       maestro-cli notify toast "Voice journal: <VERDICT> — <one-line next step>" \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" notify toast "Voice journal: <VERDICT>"
+        || {{MAESTRO_CLI_PATH}} notify toast "Voice journal: <VERDICT>"
       maestro-cli open-file "{{AUTORUN_FOLDER}}/VOICE_JOURNAL_SETUP.md" \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" open-file "{{AUTORUN_FOLDER}}/VOICE_JOURNAL_SETUP.md"
+        || {{MAESTRO_CLI_PATH}} open-file "{{AUTORUN_FOLDER}}/VOICE_JOURNAL_SETUP.md"
       ```
 
 ### Task 6: Print the handoff

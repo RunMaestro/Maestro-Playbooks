@@ -102,7 +102,7 @@ Two jobs, and which one you do depends on whether the corpus is exhausted:
 
       ```bash
       maestro-cli open-file "<OUTPUT_FOLDER>/SYNTHESIS.md" || \
-        node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" open-file "<OUTPUT_FOLDER>/SYNTHESIS.md"
+        {{MAESTRO_CLI_PATH}} open-file "<OUTPUT_FOLDER>/SYNTHESIS.md"
       ```
 
       If neither command is available, skip this quietly — it is a convenience,

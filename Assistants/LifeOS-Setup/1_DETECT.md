@@ -33,10 +33,10 @@ For Maestro agents, expected `toolType` values are `claude-code`, `opencode`, `c
   maestro-cli list agents --json
   ```
 
-  Fallback if `maestro-cli` is not on `PATH` (macOS default):
+  Fallback if `maestro-cli` is not on `PATH` (Maestro fills in the bundled CLI path):
 
   ```bash
-  node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" list agents --json
+  {{MAESTRO_CLI_PATH}} list agents --json
   ```
 
   Find the entry whose `name` matches `{{AGENT_NAME}}`. If multiple agents share the name, narrow by `cwd` matching `{{AGENT_PATH}}`. Read the matching record's `toolType` field. Record the value (or `unavailable` if both commands failed).

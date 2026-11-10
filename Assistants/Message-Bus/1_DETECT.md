@@ -122,7 +122,7 @@ Each is probed here with evidence, not assumption.
 
       ```bash
       maestro-cli settings get encoreFeatures.maestroCue \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" settings get encoreFeatures.maestroCue
+        || {{MAESTRO_CLI_PATH}} settings get encoreFeatures.maestroCue
       ```
 
       If it returns `false`, **do not silently enable it.** Record the state and
@@ -167,7 +167,7 @@ Each is probed here with evidence, not assumption.
 
       ```bash
       maestro-cli list agents --json \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" list agents --json
+        || {{MAESTRO_CLI_PATH}} list agents --json
       ```
 
       Find the entry whose `name` matches `{{AGENT_NAME}}`; if several share the

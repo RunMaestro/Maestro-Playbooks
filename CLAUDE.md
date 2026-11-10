@@ -139,6 +139,8 @@ The manifest's `prompt` field pre-fills the Auto Run panel when a user installs 
 
 **When to lift a variable:** lift values the user would reasonably tune per run AND that are not auto-detectable. Don't lift values inferable from the codebase or workflow constants that define the playbook's shape.
 
+**Keep the configuration lines machine-readable.** Each value is one line, `**VAR_NAME:** `value``, and Maestro's Launch flow rewrites the value inside the backticks with the user's answer (see "Launch Support" in CONTRIBUTING.md). Do not split a value over lines or put a backtick inside it. When a playbook has a `launch` block, every input in it must match one of these lines. Run `node scripts/validate-manifest.mjs` after any manifest change.
+
 **Template structure:**
 
 ```markdown

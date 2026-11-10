@@ -117,9 +117,9 @@ This is the last document; the playbook does not loop.
 
       ```bash
       maestro-cli notify toast "Message bus: <ARMED|DISARMED> — <one-line next step>" \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" notify toast "Message bus: <ARMED|DISARMED>"
+        || {{MAESTRO_CLI_PATH}} notify toast "Message bus: <ARMED|DISARMED>"
       maestro-cli open-file "{{AUTORUN_FOLDER}}/MESSAGE_BUS_SETUP.md" \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" open-file "{{AUTORUN_FOLDER}}/MESSAGE_BUS_SETUP.md"
+        || {{MAESTRO_CLI_PATH}} open-file "{{AUTORUN_FOLDER}}/MESSAGE_BUS_SETUP.md"
       ```
 
 ### Task 7: Print the handoff

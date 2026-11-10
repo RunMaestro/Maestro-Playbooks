@@ -46,7 +46,7 @@ Arming is document 5's job, and only after document 4 has produced evidence.
 
       ```bash
       maestro-cli settings set encoreFeatures.maestroCue true \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" settings set encoreFeatures.maestroCue true
+        || {{MAESTRO_CLI_PATH}} settings set encoreFeatures.maestroCue true
       maestro-cli settings get encoreFeatures.maestroCue
       ```
 

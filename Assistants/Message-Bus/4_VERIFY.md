@@ -81,7 +81,7 @@ verdict, not restart the playbook.
 
       ```bash
       maestro-cli notify toast "Message bus: send yourself '<TRIGGER_MARKER> test one two' to verify" \
-        || node "/Applications/Maestro.app/Contents/Resources/maestro-cli.js" notify toast "Message bus: send a test message"
+        || {{MAESTRO_CLI_PATH}} notify toast "Message bus: send a test message"
       ```
 
       If this playbook is running unattended and no reply is possible, skip this

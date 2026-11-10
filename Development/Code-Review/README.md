@@ -62,11 +62,14 @@ This playbook follows a **linear 5-document pattern** (no looping):
 
 ## Customization
 
-Edit the PR URL in `1_ANALYZE_CHANGES.md` before running:
+Set the pull request in the Auto Run prompt before running (or answer the Launch form, in Maestro versions that have one):
 
 ```markdown
-**Pull Request**: https://github.com/USER/PROJECT/pull/XXXX
+**PR_URL:** `https://github.com/OWNER/REPO/pull/123`
+**BASE_BRANCH:** `main`
 ```
+
+Check out the PR branch in the agent's working directory first; the diff is taken against `origin/<BASE_BRANCH>`.
 
 ## Exit Conditions
 
