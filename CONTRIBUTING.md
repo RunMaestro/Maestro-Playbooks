@@ -66,6 +66,7 @@ Use the `{{AUTORUN_FOLDER}}/assets/` path:
 
 **Important notes:**
 - Assets ship with the playbook **only when installed from the Exchange**—not when shared peer-to-peer via Maestro's direct-share links
+- List every file in the manifest's `assets` field; Maestro copies only listed files (the validator checks this)
 - Keep assets small—large binary files slow down installation
 - Document any assets in your playbook's README.md so users understand what's bundled
 
@@ -168,6 +169,7 @@ Add your playbook entry to the `playbooks` array in `manifest.json`:
 | `loopEnabled` | Yes | `true` if playbook loops, `false` otherwise |
 | `maxLoops` | No | Loop limit (`null` for unlimited) |
 | `prompt` | Yes | Custom prompt string, or `null` for Maestro default |
+| `assets` | If `assets/` exists | Every file name in the playbook's `assets/` folder. Maestro copies only the files listed here. |
 | `launch` | No | One-click launch support: the questions Maestro asks before a run, preconditions, and the outro shown when the run ends. See [Launch Support](#launch-support). Maestro versions without the launch flow ignore it, so Download keeps working everywhere. |
 
 ### When to set `minMaestroVersion`

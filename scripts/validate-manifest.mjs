@@ -197,6 +197,18 @@ for (const p of manifest.playbooks) {
 		const name = doc.filename.endsWith('.md') ? doc.filename : `${doc.filename}.md`;
 		if (!fs.existsSync(path.join(dir, name))) err(id, `document ${name} not found in ${p.path}`);
 	}
+	// Maestro copies only the files listed in `assets`, so an unlisted file never
+	// reaches the user and a listed but missing one fails its download.
+	const assetsDir = path.join(dir, 'assets');
+	const onDisk = fs.existsSync(assetsDir)
+		? fs.readdirSync(assetsDir).filter((f) => !f.startsWith('.') && fs.statSync(path.join(assetsDir, f)).isFile())
+		: [];
+	const listed = p.assets ?? [];
+	if (!Array.isArray(listed)) err(id, 'assets must be a list of file names');
+	else {
+		for (const f of onDisk) if (!listed.includes(f)) err(id, `assets/${f} exists but is not listed in assets`);
+		for (const f of listed) if (!onDisk.includes(f)) err(id, `assets lists ${f}, which is not in ${p.path}/assets`);
+	}
 	const docs = taskDocs(dir);
 	const docTexts = docs.map((f) => fs.readFileSync(path.join(dir, f), 'utf8'));
 	docs.forEach((f, i) => {
