@@ -103,6 +103,7 @@ Working files land in the Auto Run folder: `MEMORY_DETECT.md`, `MEMORY_PLAN.md`,
 | `qmd-update.sh` | Search re-index |
 | `test_memory.py`, `test_memory_jobs.py` | The spec's tests (temp folders, stub models) |
 | `cue-memory.yaml` | Annotated subscription template |
+| `cue.example.yaml`, `com.example.agent-memory-dream.plist` | The spec's own schedule examples (Cue and launchd), referenced by `SPEC-README.md`; the playbook uses `cue-memory.yaml` |
 | `memory-config.example.json`, `config.example.json`, `smoke.example.json`, `memory-record.schema.json` | Config and format templates |
 | `ARCHITECTURE.md`, `CHANGELOG.md`, `SPEC-README.md`, `SESSION-FORMAT.md`, `harness-memory-format.md`, `CLAUDE.md.fragment.md`, `rules-example.md` | The design, copied into `Memory/Spec/` for you to read |
 

@@ -14,6 +14,7 @@
 #   <INSTRUCTIONS_FILE_NAME>   CLAUDE.md or AGENTS.md, relative to <VAULT>
 #   <TOOLS>           absolute Tools folder
 #   <MEMDIR>          absolute Memory folder
+#   <STORE>           absolute store folder (MEMDIR/<store_dir>; default MEMDIR/Store)
 #   <DREAM_DIR>       absolute L5 store (MEMORY_DIR)
 #   <SESSIONS>        absolute L5 session folder (MEMORY_SESSIONS)
 #   <PROJECTS>        Claude Code transcripts: <CLAUDE_CONFIG_DIR>/projects/<cwd-slug>
@@ -80,7 +81,7 @@
   command:
     mode: shell
     shell: >-
-      <ENV> <PY> <TOOLS>/run_guarded.py -- <PY> <TOOLS>/memory_index_check.py <MEMDIR>/Store
+      <ENV> <PY> <TOOLS>/run_guarded.py -- <PY> <TOOLS>/memory_index_check.py <STORE>
 
 # L2: weekly smoke test. Answers what memory knows, refuses what it does not.
 - name: <SLUG>-memory-smoke

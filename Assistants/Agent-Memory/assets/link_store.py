@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from datetime import datetime
@@ -28,8 +29,9 @@ from pathlib import Path
 
 
 def cwd_slug(cwd: Path) -> str:
-    """The harness's project key: the absolute cwd with every '/' (and '.') turned into '-'."""
-    return str(cwd.resolve()).replace("/", "-").replace(".", "-")
+    """The harness's project key: the absolute cwd with every character that is not a letter or a digit
+    turned into '-' (G26: spaces, '_', '+' and the rest too, not only '/' and '.')."""
+    return re.sub(r"[^A-Za-z0-9]", "-", str(cwd.resolve()))
 
 
 def main() -> int:
@@ -52,6 +54,11 @@ def main() -> int:
             ok = mem.resolve() == store
             print(f"{'ok  ' if ok else 'WARN'} {mem} -> {mem.resolve()}{'' if ok else ' (points elsewhere)'}")
             rc |= 0 if ok else 1
+            continue
+        if mem.exists() and mem.resolve() == store:
+            # G27: the store already IS this folder. Merging would see every file as a clash and the
+            # rmtree below would delete the store itself.
+            print(f"ok   {mem} is the store itself; nothing to link")
             continue
         files = sorted(p for p in mem.glob("*") if p.is_file()) if mem.is_dir() else []
         clash = [p.name for p in files if (store / p.name).exists()]

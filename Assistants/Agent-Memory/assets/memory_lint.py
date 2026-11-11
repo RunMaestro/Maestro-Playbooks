@@ -146,7 +146,8 @@ def main() -> int:
     unindexed = sorted(files - indexed)
     dead_pointers = sorted(f for f in indexed if f not in files
                            and not (ms.STORE / f).exists())
-    core_bytes = ms.CORE_INDEX.stat().st_size
+    # G25: a missing core index is a finding, not a crash (wrong store_dir, deleted file).
+    core_bytes = ms.CORE_INDEX.stat().st_size if ms.CORE_INDEX.exists() else -1
 
     dead_refs, stamped, no_refs = {}, 0, 0
     for m in mems:
@@ -205,6 +206,8 @@ def main() -> int:
     summary = (f"{len(mems)} memories, {len(unindexed)} unindexed, {len(dead_pointers)} dead pointers, "
                f"{len(dead_refs)} with dead paths, {stamped} verified today, "
                f"{len(fired_now)} decisions reopened")
+    if core_bytes < 0:
+        summary = f"MISSING core index {ms.CORE_INDEX}; " + summary
     print(f"memory_lint: {summary}")
 
     if write:
@@ -214,7 +217,7 @@ def main() -> int:
              f"Overwritten every run; do not edit. Hub: [[{ms.AGENT_DIR}/Memory/🗺️ Memory]].", "",
              "| Measure | Value |", "|---|---|",
              f"| Memories | {len(mems)} ({', '.join(f'{k} {v}' for k, v in sorted(by_type.items()))}) |",
-             f"| Core index `MEMORY.md` | {core_bytes:,} B of {CORE_BUDGET:,} B budget |",
+             f"| Core index `MEMORY.md` | " + (f"{core_bytes:,} B of {CORE_BUDGET:,} B budget" if core_bytes >= 0 else "**MISSING**") + " |",
              f"| `said_by` set | {ms.OWNER_KEY} {said[ms.OWNER_KEY]}, inferred {said['inferred']}, task {said['task']}, "
              f"unset {len(mems) - sum(said.values())} |",
              f"| With `sources:` | {with_sources} |",
@@ -237,7 +240,7 @@ def main() -> int:
         L.append("#claude")
         HEALTH.write_text("\n".join(L) + "\n")
 
-    bad = bool(dead_refs or dead_pointers or unindexed)
+    bad = bool(dead_refs or dead_pointers or unindexed or core_bytes < 0)
     return 1 if (args.strict and bad) else 0
 
 

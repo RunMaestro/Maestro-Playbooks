@@ -4,6 +4,34 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.9
+
+Seven fixes from an automated code review of the playbook that packages this spec. Two of them prevented data loss.
+
+### Changed
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| G24 | `memory_smoke.py` | `"model": null` in the smoke config means the default model, as G21 does for promotion. Before, the judge crashed and the run recorded nothing | No |
+| G25 | `memory_lint.py` | A missing `MEMORY.md` (wrong `store_dir`, deleted file) is reported on the health page and fails `--strict`, instead of crashing the lint | No |
+| G26 | `link_store.py` | The project-folder name matches the harness: every character that is not a letter or digit becomes `-`. Before, only `/` and `.` did, so a working directory with a space or `_` pointed at a folder the harness never uses | **Yes, for such paths.** Re-run the dry run; a path with a space now resolves to the real harness folder |
+| G27 | `link_store.py` | Refuses when the harness memory folder already is the store. Before, every file counted as a clash and the folder, which was the store, was deleted | No. **Data loss fixed** |
+| G28 | `memory_index_check.py` | Shard pointers resolve against the file that holds them, and a shard outside the store (`promote.promoted_shard`) is read. Before, a supported layout failed every daily check | No |
+| G29 | `memory.py` | When the call budget stops extraction, the day's sessions stay unreplayed. Before, they were marked replayed and the chunks never sent were lost for good | No. **Data loss fixed** |
+| G30 | `README.md` | The transcript step computes the project slug instead of a `<cwd-slug>` placeholder the shell reads as a redirect, and creating the promoted shard no longer overwrites an existing one on a re-run | No (docs) |
+
+### New tests
+
+`test_memory_jobs.py` grows from 40 to 45 (G24 to G28) and `test_memory.py` from 11 to 12 (G29). Mutation check:
+all six fail against the `.8` code.
+
+### Breaking
+
+1. **G26:** if the agent's working directory contains a character other than a letter, digit, `/` or `.`, re-run
+   `link_store.py` (dry run first). An earlier run may have linked a folder the harness does not read.
+2. **Set `spec_version: "2026-11-10.9"`** in both configs after `test_memory_jobs.py` (45) and `test_memory.py`
+   (12) pass.
+
 ## 2026-11-10.8
 
 One bug found by a live install of the Auto Run playbook on a fresh agent.

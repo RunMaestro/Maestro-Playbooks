@@ -54,15 +54,29 @@ def check(store: Path, max_bytes: int, max_lines: int) -> dict:
         fails.append({"kind": "budget", "detail": f"MEMORY.md {lines} lines > {max_lines}"})
 
     shards = sorted(store.glob("index_*.md"))
+    # G28: a shard may live outside the store (promote.promoted_shard), so MEMORY.md points at it with a
+    # relative path such as ../index_promoted.md. Shard pointers resolve against the file that holds them;
+    # memory pointers name a file in the store by its basename, as the harness reads them.
+    in_store = {s.resolve() for s in shards}
+    for t in PTR.findall(idx_text):
+        p = (index.parent / t).resolve()
+        if Path(t).name.startswith("index_") and p.exists() and p not in in_store:
+            shards.append(p)
+            in_store.add(p)
     indexed: set[str] = set()
     for f in [index, *shards]:
         for target in PTR.findall(f.read_text()):
             name = Path(target).name
-            indexed.add(name)
-            if not (store / name).exists():
+            if name.startswith("index_"):
+                ok = (f.parent / target).resolve().exists()
+            else:
+                indexed.add(name)
+                ok = (store / name).exists()
+            if not ok:
                 fails.append({"kind": "pointer", "detail": f"{f.name} -> {target} (missing)"})
+    reachable = {(index.parent / t).resolve() for t in PTR.findall(idx_text)}
     for s in shards:
-        if s.name not in PTR.findall(idx_text) and s.name not in {Path(t).name for t in PTR.findall(idx_text)}:
+        if s.resolve() not in reachable:
             fails.append({"kind": "shard", "detail": f"{s.name} is not reachable from MEMORY.md"})
 
     mems = [p for p in sorted(store.glob("*.md")) if p.name != "MEMORY.md" and not p.name.startswith("index_")]

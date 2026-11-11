@@ -1,0 +1,97 @@
+# Scheduling for the memory layers, as Maestro Cue subscriptions (.maestro/cue.yaml in the agent's directory).
+# Not using Maestro? See com.example.agent-memory-dream.plist (launchd) or the crontab lines at the bottom.
+#
+# Every value in <angle brackets> is a placeholder. Replace all of them before you load this file:
+#   <AGENT_ID>          your agent's ID in your orchestrator
+#   <CWD_SLUG>          the harness project key: the agent's absolute cwd with "/" and "." turned into "-"
+#   <TZ>                your IANA time zone, for example Europe/Berlin
+#   <NIGHT_HH:MM>       a time after your last ingest of the day and before you start work
+#   <MORNING_HH:MM>     a time after the nightly jobs finish
+#   <WEEKLY_HH:MM>, <WEEKDAY>   one slot a week, for example sun
+# Paths assume the vault at ~/Vault and the agent's folder at ~/Vault/Agent. Times are local.
+subscriptions:
+  # L5: nightly dream. A prompt action (not a bare command) so the agent can self-heal a failed run.
+  - name: Memory-Dream
+    event: time.scheduled
+    enabled: true
+    agent_id: <AGENT_ID>
+    pipeline_name: Memory
+    label: Nightly memory dream (L5 consolidation)
+    schedule_times:
+      - '<NIGHT_HH:MM>'
+    action: prompt
+    tier: low
+    prompt: >-
+      Nightly memory dream. Run: python3 ~/Vault/Agent/Tools/cc_sessions.py
+      --projects ~/.claude/projects/<CWD_SLUG> --out ~/.agent-sessions --days 2
+      && MEMORY_SESSIONS=~/.agent-sessions python3 ~/Vault/Agent/Tools/memory.py dream
+      If it prints skipped or "extract call failed", run the dream once more; if it still fails, find the cause
+      and fix it (tests: python3 ~/Vault/Agent/Tools/test_memory.py). Do nothing else.
+      Reply with the one-line headline from the dream log.
+
+  # L3 -> L2: nightly promotion, then the lint (no model). Run after the dream, not at the same minute.
+  - name: Memory-Promote-And-Lint
+    event: time.scheduled
+    agent_id: <AGENT_ID>
+    pipeline_name: Memory
+    label: Nightly promotion + lint
+    schedule_times:
+      - '<NIGHT_HH:MM>'
+    action: command
+    command:
+      mode: shell
+      shell: >-
+        AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_promote.py;
+        AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_lint.py
+
+  # L1 + L2: daily index check.
+  - name: Memory-Index-Check
+    event: time.scheduled
+    agent_id: <AGENT_ID>
+    pipeline_name: Memory
+    label: Memory index check (L1 budget, dead pointers)
+    schedule_times:
+      - '<MORNING_HH:MM>'
+    action: command
+    command:
+      mode: shell
+      shell: python3 ~/Vault/Agent/Tools/memory_index_check.py ~/Vault/Agent/Memory/Store
+
+  # L2: weekly answers-and-refusals test.
+  - name: Memory-Smoke
+    event: time.scheduled
+    agent_id: <AGENT_ID>
+    pipeline_name: Memory
+    label: Memory smoke test (weekly)
+    schedule_times:
+      - '<WEEKLY_HH:MM>'
+    schedule_days:
+      - <WEEKDAY>
+    action: command
+    command:
+      mode: shell
+      shell: AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_smoke.py
+
+  # L0: weekly CLAUDE.md and rules audit. A command action: no model call unless it finds something.
+  - name: Memory-CLAUDE-md-Audit
+    event: time.scheduled
+    agent_id: <AGENT_ID>
+    pipeline_name: Memory
+    label: CLAUDE.md audit (L0 budget)
+    schedule_times:
+      - '<WEEKLY_HH:MM>'
+    schedule_days:
+      - <WEEKDAY>
+    action: command
+    command:
+      mode: shell
+      shell: python3 ~/Vault/Agent/Tools/claude_md_audit.py --root ~/Vault --claude-md CLAUDE.md --rules Agent/Rules
+
+# cron equivalents (crontab -e). Replace <M> <H> (minute, hour) and <DOW> (0-6, Sunday = 0) with your own slots.
+# L4 re-index: a few times a day is enough; <EVERY_N_HOURS> of 2 to 4 works.
+#   0 */<EVERY_N_HOURS> * * *  ~/bin/qmd-update.sh >> ~/cron/qmd-update.log 2>&1
+#   <M> <H> * * *    MEMORY_SESSIONS=~/.agent-sessions python3 ~/Vault/Agent/Tools/memory.py dream >> ~/cron/memory-dream.log 2>&1
+#   <M> <H> * * *    AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_promote.py; AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_lint.py
+#   <M> <H> * * *    python3 ~/Vault/Agent/Tools/memory_index_check.py ~/Vault/Agent/Memory/Store
+#   <M> <H> * * <DOW>  AGENT_VAULT=~/Vault AGENT_TZ=<TZ> python3 ~/Vault/Agent/Tools/memory_smoke.py
+#   <M> <H> * * <DOW>  python3 ~/Vault/Agent/Tools/claude_md_audit.py --root ~/Vault

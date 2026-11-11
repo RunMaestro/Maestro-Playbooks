@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Implementation Guide
 
-Spec version: 2026-11-10.8
+Spec version: 2026-11-10.9
 
 A layered long-term memory for a Claude Code agent that lives in a markdown vault. It has seven layers, each
 with its own store and its own off switch. Every memory is a plain markdown file that a human can read and edit.
@@ -106,7 +106,8 @@ in the top 3.
 mkdir -p ~/.agent-memory && cp config.example.json ~/.agent-memory/config.json   # set owner, people, assistant
 export MEMORY_DIR=~/.agent-memory MEMORY_SESSIONS=~/.agent-sessions
 python3 test_memory.py                                                            # all passed
-python3 cc_sessions.py --projects ~/.claude/projects/<cwd-slug> --out ~/.agent-sessions --days 7
+SLUG="$(python3 -c 'import re,sys; print(re.sub(r"[^A-Za-z0-9]", "-", sys.argv[1]))' "$HOME/Vault")"   # the agent's cwd
+python3 cc_sessions.py --projects "$HOME/.claude/projects/$SLUG" --out ~/.agent-sessions --days 7
 python3 memory.py dream --dry-run                                                 # read the log; nothing written
 python3 memory.py backfill                                                        # one dream per past day
 python3 memory.py status
@@ -147,7 +148,8 @@ a `finally`. Do this before step 9, so the first job that writes memory cannot a
 export AGENT_VAULT=~/Vault AGENT_DIR=Agent                 # the agent's folder inside the vault
 cp memory-config.example.json "$AGENT_VAULT/$AGENT_DIR/Memory/config.json"   # set owner, agent, apply_after
 cp smoke.example.json "$AGENT_VAULT/$AGENT_DIR/Memory/smoke.json"            # write your own questions
-printf '# Promoted\n' > "$AGENT_VAULT/$AGENT_DIR/Memory/Store/index_promoted.md"  # new memories land here
+SHARD="$AGENT_VAULT/$AGENT_DIR/Memory/Store/index_promoted.md"
+[ -e "$SHARD" ] || printf '# Promoted\n' > "$SHARD"        # new memories land here; never overwrite on a re-run
 python3 memory_lint.py                          # dead paths, verified stamps, decisions, health page
 python3 memory_promote.py --print-prompt        # see what the model will get for yesterday
 python3 memory_promote.py --dry-run             # proposals to Memory/Promotions/<day>.md, store untouched

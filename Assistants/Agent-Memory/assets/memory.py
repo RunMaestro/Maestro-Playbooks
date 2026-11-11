@@ -721,6 +721,10 @@ def dream(day: str | None = None, sessions: list[Path] | None = None, dry: bool 
             for ch in chunks:
                 if D.calls >= int(c.get("budget_calls") or 14):
                     D.say(f"budget reached ({D.calls} calls); the rest waits for the next dream")
+                    # G29: leave every session of this day unreplayed, or the chunks never sent are lost
+                    # for good. Facts already extracted come back as "same" and are reinforced at most
+                    # once per day.
+                    sessions = []
                     break
                 D.calls += 1
                 out = LLM(EXTRACT_PROMPT.format(day=day, owner=owner(), assistant=c.get("assistant", "Assistant"),

@@ -10,6 +10,7 @@ built at run time so this file holds nothing token-shaped), G17 (CLI that exits 
 2026-11-10.6 adds G19 (authorization header or assignment, each form tested).
 2026-11-10.7 adds G21 (`"model": null` means the default model) and G22 (no vault-only tag in the Promotions log).
 2026-11-10.8 adds G23 (the smoke judge sees a memory past its first 1200 characters).
+2026-11-10.9 adds G24 (smoke null model), G25 (lint without MEMORY.md), G26 and G27 (link_store), G28 (external shard in the index check).
 """
 import importlib
 import json
@@ -647,6 +648,65 @@ def test_g23_smoke_judge_sees_text_past_1200_chars():
         sm.judge = lambda q, ctx: (0.9 if "03:15" in ctx else 0.1) if "nightly" in q else 0.1
         sys.argv = ["memory_smoke.py"]
         assert sm.main() == 0, json.loads((ms.STATE / "smoke.json").read_text())["rows"]
+
+
+# ---------- G24 to G28 (spec 2026-11-10.9) ----------
+
+def test_g24_smoke_null_model_uses_the_default():
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        seen = t / "seen.json"
+        stub = stub_exe(t, "judge-stub", MODEL_STUB % repr("YES"))
+        ms, mp, sm, _ = vault(t, smoke={"model": None},
+                              extra={"model_cmd": [str(stub), str(seen), "--model", "{model}"]})
+        sm = importlib.reload(sm)
+        assert sm.judge("q?", "ctx") == 0.9
+        assert json.loads(seen.read_text())["argv"] == ["--model", "haiku"]
+
+
+def test_g25_lint_reports_a_missing_core_index():
+    with tempfile.TemporaryDirectory() as t:
+        ms, mp, _, _ = vault(Path(t), extra={"lint": {"enabled": True}})
+        (ms.STORE / "MEMORY.md").unlink()
+        import memory_lint
+        ml = importlib.reload(memory_lint)
+        sys.argv = ["memory_lint.py", "--no-write", "--strict"]
+        assert ml.main() == 1
+
+
+def test_g26_link_store_slug_matches_the_harness():
+    import link_store
+    ls = importlib.reload(link_store)
+    assert ls.cwd_slug(Path("/tmp/My Vault_v2.d")).endswith("-My-Vault-v2-d")
+
+
+def test_g27_link_store_refuses_when_the_memory_folder_is_the_store():
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        cwd = t / "proj"
+        cwd.mkdir()
+        import link_store
+        ls = importlib.reload(link_store)
+        mem = t / "cfg" / "projects" / ls.cwd_slug(cwd) / "memory"
+        mem.mkdir(parents=True)
+        (mem / "keep_me.md").write_text("x")
+        sys.argv = ["link_store.py", "--store", str(mem), "--cwd", str(cwd), "--apply",
+                    "--backup", str(t / "bak"), str(t / "cfg")]
+        ls.main()
+        assert (mem / "keep_me.md").exists() and not mem.is_symlink()
+
+
+def test_g28_index_check_follows_an_external_promoted_shard():
+    with tempfile.TemporaryDirectory() as t:
+        ms, mp, _, _ = vault(Path(t), shard="index_promoted.md")    # shard in MEMDIR, outside the store
+        ms.write_new("feedback_x", "X", "an x rule", "feedback", "Body.", {"said_by": "owner"})
+        ext = ms.MEMDIR / "index_promoted.md"
+        ext.write_text("# Promoted\n- [X](feedback_x.md): an x rule\n")
+        import memory_index_check
+        mic = importlib.reload(memory_index_check)
+        rep = mic.check(ms.STORE.resolve(), 24_400, 0)
+        kinds = [(f["kind"], f["detail"]) for f in rep["fails"]]
+        assert not kinds, kinds
 
 if __name__ == "__main__":
     fails = 0

@@ -265,6 +265,21 @@ def test_model_cmd_runs_a_stub_with_the_prompt_on_stdin():
             pass
 
 
+
+def test_g29_budget_stop_leaves_the_day_unreplayed():
+    """Spec 2026-11-10.9: when the call budget stops extraction, no session of that day is marked replayed."""
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        m = fresh(t)
+        m.set_cfg(budget_calls=1)
+        line = "- `10:00:01` **User:** " + ("the deploy runs on tuesdays and the cache warms first. " * 40)
+        session(t, "2026-11-01-100000", [line] * 20)          # more than one CHUNK, so two extract calls
+        calls = []
+        m.LLM = lambda p: calls.append(1) or {"memories": []}
+        m.dream("2026-11-01")
+        assert len(calls) == 1
+        assert not m._state().get("replayed"), m._state().get("replayed")
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

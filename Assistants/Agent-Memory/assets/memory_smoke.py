@@ -5,7 +5,7 @@ memory_smoke.py: does the fact store answer what it knows, and refuse what it do
  Fixed questions live in
 `Agent/Memory/smoke.json`. For each one:
   1. lexical recall (memstore.recall) takes the top 5 memories;
-  2. one jev noul asks: do these memories contain the answer to the question?
+  2. one yes/no judgment (the judge) asks: do these memories contain the answer to the question?
 An `expect` question passes when jev says yes (p >= 0.5) AND the expected slug is in
 the top 5. An `abstain` question passes when jev says no. Word overlap alone cannot
 abstain ("blood type" matches a memory about type size), which is why the judgment
@@ -60,7 +60,7 @@ def judge(question: str, ctx: str) -> float | None:
     yes/no judge works; this uses a small model. parse_verdict() reads its answer."""
     prompt = (f"question: {question}\n\nmemories:\n{ctx}\n\n{JUDGE_Q} "
               "Answer with YES or NO on a line of its own.")
-    model = (ms.config().get("smoke") or {}).get("model", "haiku")
+    model = (ms.config().get("smoke") or {}).get("model") or "haiku"   # G24: null means the default
     return parse_verdict(ms.model_call(prompt, model, timeout=120, label="memory_smoke").stdout)
 
 
@@ -81,7 +81,7 @@ def main() -> int:
         try:
             p = judge(item["q"], ctx)
         except Exception as e:
-            print(f"memory_smoke: jev failed ({e}); not recorded")
+            print(f"memory_smoke: judge failed ({e}); not recorded")
             return 0
         slugs = [m.slug for _, m in hits]
         if item.get("abstain"):

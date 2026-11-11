@@ -184,7 +184,7 @@ judge, Node for search, Maestro Cue for the schedules, and the agent's own Maest
 
 - [ ] **Claude Code only: find the harness memory folder.** The harness keys memory on the project path:
       `<CLAUDE_CONFIG_DIR>/projects/<slug>/memory/`, where `<slug>` is the absolute working directory with
-      every `/` and `.` turned into `-`.
+      every character that is not a letter or a digit turned into `-` (spaces and `_` too, not only `/` and `.`).
 
       ```bash
       ls -la "<CLAUDE_CONFIG_DIR>/projects/" | grep -- "<slug>"
