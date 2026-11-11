@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Implementation Guide
 
-Spec version: 2026-11-10.10
+Spec version: 2026-11-10.11
 
 A layered long-term memory for a Claude Code agent that lives in a markdown vault. It has seven layers, each
 with its own store and its own off switch. Every memory is a plain markdown file that a human can read and edit.
@@ -35,7 +35,8 @@ measured. This file is the build order.
 | `memory_lint.py` | L2 | Nightly, no model: dead paths and `verified:` stamps, decision `reopen_if` checks, index integrity, health page |
 | `memory_smoke.py` | L2 | Weekly fixed-question test: answers and refusals |
 | `install_memory.py` | all | One-command install: plan, apply, verify; safe to re-run |
-| `test_install_memory.py` | all | Installer tests: fresh, re-run, user-edited tool |
+| `test_install_memory.py` | all | Installer tests: fresh, re-run, edited tool and rules, paths outside the vault, quoting |
+| `run_guarded.py` | jobs | Runs one scheduled job inside the protected-files guard |
 | `protected_files.py` | jobs | Snapshot and restore of identity files around every background job |
 | `memory-config.example.json` | L2 jobs | Switches, owner and agent names, promotion mode and date, off-limits topics |
 | `smoke.example.json` | L2 | Smoke-test question format |

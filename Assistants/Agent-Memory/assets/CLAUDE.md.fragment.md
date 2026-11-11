@@ -1,6 +1,6 @@
 # CLAUDE.md Fragment: Memory Instructions
 
-Spec version: 2026-11-10.10.
+Spec version: 2026-11-10.11.
 
 Paste the parts you use into the agent's `CLAUDE.md`. Paths are placeholders: `~/Vault/` is the notes vault,
 `Agent/` is the folder the agent owns inside it. Keep the always-on core small; detail goes in `rules/`.

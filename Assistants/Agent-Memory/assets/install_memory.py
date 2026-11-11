@@ -29,6 +29,7 @@ import datetime as dt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -138,6 +139,7 @@ def find_agent(cli, agent_id: str | None, name: str | None, cwd: Path) -> dict |
 def model_cmd_for(harness: str) -> tuple[list[str] | None, str]:
     """A headless model CLI, prompt on stdin. Prefer the agent's own harness."""
     order = (["claude", "codex"] if harness != "codex" else ["codex", "claude"])
+    tried: list[str] = []
     for b in order:
         p = shutil.which(b)
         if not p and b == "claude" and Path.home().joinpath(".local/bin/claude").exists():
@@ -148,9 +150,9 @@ def model_cmd_for(harness: str) -> tuple[list[str] | None, str]:
         probe = [a.replace("{model}", "haiku") for a in cmd]
         r = sh(probe, timeout=90, input="Reply with the single word OK.")
         if r.returncode == 0 and "OK" in r.stdout.upper():
-            return cmd, f"{b}: OK"
-        return None, f"{b}: probe failed ({r.returncode}: {(r.stderr or r.stdout)[-160:].strip()})"
-    return None, "no model CLI (claude, codex) found"
+            return cmd, f"{b}: OK" + (f" (after {'; '.join(tried)})" if tried else "")
+        tried.append(f"{b} probe failed ({r.returncode}: {(r.stderr or r.stdout)[-120:].strip()})")
+    return None, "; ".join(tried) or "no model CLI (claude, codex) found"
 
 
 def detect_reindex(cli) -> str:
@@ -204,8 +206,20 @@ def plan(a) -> dict:
     node = shutil.which("node")
     tz = local_tz() if a.timezone == "auto" else a.timezone
     slug = a.slug or slugify(name)
+    prior = Path(a.vault).expanduser().resolve() / a.agent_folder / "Memory" / "config.json"
+    try:
+        slug = a.slug or json.loads(prior.read_text()).get("slug") or slug
+    except Exception:
+        if not a.slug and a.search == "qmd" and shutil.which("node"):
+            taken = sh(QMD + ["collection", "list"], timeout=180).stdout
+            if re.search(rf"^{re.escape(slug)}-(journal|memory|tools)\b", taken, re.M):
+                import hashlib
+                slug = f"{slug}-{hashlib.sha1(str(vault).encode()).hexdigest()[:6]}"
+                notes.append(f"slug: another vault already uses the name's collections; using {slug}")
     agent_dir = a.agent_folder
-    A = vault / agent_dir
+    A = (vault / agent_dir).resolve()
+    if not A.is_relative_to(vault) or A == vault:
+        blockers.append(f"--agent-folder {agent_dir!r} must be a folder inside the vault")
     P = {
         "VAULT": str(vault), "AGENT_DIR": agent_dir, "TOOLS": str(A / "Tools"), "MEMDIR": str(A / "Memory"),
         "STORE": str(A / "Memory" / "Store"), "JOURNAL": str(A / "Journal"), "RULES": str(A / "Rules"),
@@ -224,7 +238,15 @@ def plan(a) -> dict:
     dream_on = (a.dream == "yes" or (a.dream == "auto" and harness == "claude-code")) and bool(model_cmd)
     reindex = detect_reindex(cli) if search_on else "n/a"
     folders = content_folders(vault, agent_dir, a.content_folders) if search_on else []
+    for f in folders:
+        if not (vault / f).resolve().is_relative_to(vault):
+            blockers.append(f"content folder {f!r} is outside the vault")
     apply_after = (dt.date.today() + dt.timedelta(days=a.review_days)).isoformat()
+    if mode == "UPDATE":                      # an update keeps the installed gate date; apply keeps it anyway
+        try:
+            apply_after = json.loads(cfg_path.read_text())["promote"]["apply_after"] or apply_after
+        except Exception:
+            pass
     claude_env = ((agent or {}).get("customEnvVars") or {}).get("CLAUDE_CONFIG_DIR") or next(
         (e.get("value") for e in (agent or {}).get("effectiveEnv") or [] if e.get("key") == "CLAUDE_CONFIG_DIR"), None)
     claude_cfg = Path(claude_env or os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
@@ -234,7 +256,7 @@ def plan(a) -> dict:
     # configs
     mc = json.loads((ASSETS / "memory-config.example.json").read_text())
     mc.update({"spec_version": spec_version(), "owner": a.owner, "agent": name, "model_cmd": model_cmd,
-               "store_dir": "Store"})
+               "store_dir": "Store", "slug": slug})
     mc["promote"].update({"enabled": bool(model_cmd), "mode": "dry-run", "apply_after": apply_after,
                           "require_review": a.require_review == "yes", "reviewed": False,
                           "sources": ["journal", "timeline"] if cli else ["journal"],
@@ -268,31 +290,35 @@ def plan(a) -> dict:
 
     # schedules
     py = sys.executable
-    env = (f"AGENT_VAULT={vault} AGENT_DIR={agent_dir} AGENT_TZ={tz} AGENT_MEMORY_STATE={P['STATE']} "
-           f"MAESTRO_AGENT_ID={(agent or {}).get('id', '')} MAESTRO_CLI={(cli or [''])[-1]} "
-           f"PATH={Path(node).parent if node else '/usr/local/bin'}:/usr/bin:/bin")
-    G = f"{py} {P['TOOLS']}/run_guarded.py --"
+    q = shlex.quote
+    tool = lambda name: q(f"{P['TOOLS']}/{name}")
+    env_vars = {"AGENT_VAULT": str(vault), "AGENT_DIR": agent_dir, "AGENT_TZ": tz, "AGENT_MEMORY_STATE": P["STATE"],
+                "MAESTRO_AGENT_ID": (agent or {}).get("id", ""), "MAESTRO_CLI": (cli or [""])[-1],
+                "PATH": f"{Path(node).parent if node else '/usr/local/bin'}:/usr/bin:/bin"}
+    env = " ".join(f"{k}={q(v)}" for k, v in env_vars.items())
+    py_q = q(py)
+    G = f"{py_q} {tool('run_guarded.py')} --"
     jobs = []
     if search_on and reindex == "none":
         jobs.append(("search-index", "Memory search re-index (qmd)", {"event": "time.heartbeat",
-                     "interval_minutes": 120}, f"{env} {G} /bin/bash {P['TOOLS']}/qmd-update.sh"))
+                     "interval_minutes": 120}, f"{env} {G} /bin/bash {tool('qmd-update.sh')}"))
     if dream_on:
         jobs.append(("dream", "Nightly memory dream (L5)", {"schedule_times": [a.nightly]},
-                     f"{env} MEMORY_DIR={P['DREAM_DIR']} MEMORY_SESSIONS={P['SESSIONS']} {G} /bin/sh -c "
-                     f"'{py} {P['TOOLS']}/cc_sessions.py --projects {projects} --out {P['SESSIONS']} --days 2 "
-                     f"&& {py} {P['TOOLS']}/memory.py dream'"))
+                     f"{env} MEMORY_DIR={q(P['DREAM_DIR'])} MEMORY_SESSIONS={q(P['SESSIONS'])} {G} /bin/sh -c "
+                     + q(f"{py_q} {tool('cc_sessions.py')} --projects {q(str(projects))} --out {q(P['SESSIONS'])} "
+                         f"--days 2 && {py_q} {tool('memory.py')} dream")))
     jobs.append(("promote-lint", "Nightly memory promotion + lint", {"schedule_times": [hhmm_add(a.nightly, 30)]},
-                 f"{env} {G} /bin/sh -c '{py} {P['TOOLS']}/memory_promote.py; {py} {P['TOOLS']}/memory_lint.py'"))
+                 f"{env} {G} /bin/sh -c " + q(f"{py_q} {tool('memory_promote.py')}; {py_q} {tool('memory_lint.py')}")))
     jobs.append(("index-check", "Memory index check", {"schedule_times": [hhmm_add(a.nightly, 60)]},
-                 f"{env} {G} {py} {P['TOOLS']}/memory_index_check.py {P['STORE']}"))
+                 f"{env} {G} {py_q} {tool('memory_index_check.py')} {q(P['STORE'])}"))
     if model_cmd:
         jobs.append(("smoke", "Memory smoke test (weekly)",
                      {"schedule_times": [weekly], "schedule_days": [weekday]},
-                     f"{env} {G} {py} {P['TOOLS']}/memory_smoke.py"))
+                     f"{env} {G} {py_q} {tool('memory_smoke.py')}"))
     jobs.append(("instructions-audit", "Instructions audit (weekly)",
                  {"schedule_times": [weekly], "schedule_days": [weekday]},
-                 f"{env} {G} {py} {P['TOOLS']}/claude_md_audit.py --root {vault} --claude-md {instr_rel} "
-                 f"--rules {agent_dir}/Rules"))
+                 f"{env} {G} {py_q} {tool('claude_md_audit.py')} --root {q(str(vault))} --claude-md {q(instr_rel)} "
+                 f"--rules {q(agent_dir + '/Rules')}"))
     subs = []
     for job, label, when, shell in jobs:
         s = {"name": f"{slug}-memory-{job}", "event": when.get("event", "time.scheduled"),
@@ -310,8 +336,8 @@ def plan(a) -> dict:
     elif hm.is_symlink() and hm.resolve() == Path(P["STORE"]).resolve():
         link = "linked"
     else:
-        link = (f"python3 {P['TOOLS']}/link_store.py --store {P['STORE']} --cwd {vault} --apply "
-                f"--backup {P['STATE']}/backup {claude_cfg}")
+        link = shlex.join(["python3", f"{P['TOOLS']}/link_store.py", "--store", P["STORE"], "--cwd", str(vault),
+                           "--apply", "--backup", f"{P['STATE']}/backup", str(claude_cfg)])
 
     plan_ = {
         "spec_version": spec_version(), "created": dt.datetime.now().isoformat(timespec="seconds"),
@@ -498,23 +524,32 @@ def apply(p: dict, out: Path) -> int:
     shipped_f = P["STATE"] / "shipped.json"          # hash of what we installed, to tell user edits apart
     shipped = json.loads(shipped_f.read_text()) if shipped_f.exists() else {}
     h = lambda b: hashlib.sha256(b).hexdigest()
+    backed = []
     for f in TOOLS_FILES:
         src, dst = ASSETS / f, P["TOOLS"] / f
         if not src.exists():
             continue
-        edited = dst.exists() and h(dst.read_bytes()) not in (shipped.get(f), h(src.read_bytes())) and f in shipped
-        if edited:
-            shutil.copy2(src, dst.with_name(f + ".new"))
-            kept.append(f)
-        else:
-            shutil.copy2(src, dst)
-            shipped[f] = h(src.read_bytes())
-            dst.chmod(0o755)
+        new, cur = src.read_bytes(), dst.read_bytes() if dst.exists() else None
+        if cur is not None and h(cur) != h(new):
+            if f in shipped and h(cur) != shipped[f]:
+                # the owner edited a tool this installer shipped: keep theirs, offer ours
+                dst.with_name(f + ".new").write_bytes(new)
+                kept.append(f)
+                continue
+            if f not in shipped:
+                # installed before this installer existed: provenance unknown, so keep a copy before upgrading
+                dst.with_name(f"{f}.before-{spec_version()}").write_bytes(cur)
+                backed.append(f)
+        dst.write_bytes(new)
+        dst.chmod(0o755)
+        shipped[f] = h(new)
     shipped_f.write_text(json.dumps(shipped, indent=1))
     for f in SPEC_FILES + ["README.md", "SPEC-README.md"]:
         if (ASSETS / f).exists():
             shutil.copy2(ASSETS / f, P["SPEC"] / f)
-    log(f"tools installed in {P['TOOLS']}" + (f"; kept your edited {kept} (new copies as .new)" if kept else ""))
+    log(f"tools installed in {P['TOOLS']}" + (f"; kept your edited {kept} (new copies as .new)" if kept else "")
+        + (f"; earlier copies of {backed} saved as .before-{spec_version()}" if backed else ""))
+    p["_shipped"] = shipped
     r1 = sh([py, "test_memory_jobs.py"], timeout=300, cwd=P["TOOLS"])
     r2 = sh([py, "test_memory.py"], timeout=300, cwd=P["TOOLS"])
     tests_ok = "all passed" in r1.stdout and "all passed" in r2.stdout
@@ -582,15 +617,31 @@ def apply(p: dict, out: Path) -> int:
     else:
         new = (cur.rstrip("\n") + "\n\n" if cur.strip() else "") + block + "\n"
     write_if_changed(ins, new)
+    import hashlib
+    h = lambda b: hashlib.sha256(b.encode() if isinstance(b, str) else b).hexdigest()
+    shipped = p.get("_shipped", {})
+    proposed = []
+
+    def install_rule(dst: Path, body: str, key: str):
+        if dst.exists() and dst.read_text() != body and shipped.get(key) != h(dst.read_text()):
+            dst.with_name(dst.name + ".new").write_text(body)       # edited or unknown: keep theirs
+            proposed.append(str(dst))
+            return
+        write_if_changed(dst, body)
+        shipped[key] = h(body)
+
     for fn, body in rules_files(p).items():
-        write_if_changed(P["RULES"] / fn, body)
+        install_rule(P["RULES"] / fn, body, f"rules/{fn}")
     rl = P["VAULT"] / ".claude" / "rules"
     if not rl.exists() and not rl.is_symlink():
         rl.parent.mkdir(exist_ok=True)
         rl.symlink_to(Path("..") / p["paths"]["AGENT_DIR"] / "Rules")
     elif rl.is_dir() and not rl.is_symlink():
         for fn, body in rules_files(p).items():
-            write_if_changed(rl / fn, body)
+            install_rule(rl / fn, body, f"claude-rules/{fn}")
+    (P["STATE"] / "shipped.json").write_text(json.dumps(shipped, indent=1))
+    if proposed:
+        log(f"kept your edited rules {proposed}; the shipped versions are beside them as .new")
     log(f"instruction block in {ins.name}; rules in {P['RULES']}")
     # first journal entry
     today = dt.date.today().isoformat()
@@ -757,12 +808,26 @@ def verify(p: dict, out: Path, fast: bool) -> int:
     r = sh([py, str(T / "memory_lint.py"), "--no-write"], env=env | {"AGENT_MEMORY": "0"})
     check("off switch", "skipped" in r.stdout, r.stdout.strip()[-80:])
     if p["layers"]["promotion"]:
-        before = sorted(x.name for x in P["STORE"].iterdir())
-        r = sh([py, str(T / "memory_promote.py"), "--apply"], env=env, timeout=120)
-        check("review gate refuses apply", r.returncode == 3 or "refused" in (r.stdout + r.stderr).lower(),
-              f"exit {r.returncode}")
-        check("store unchanged by the gate", sorted(x.name for x in P["STORE"].iterdir()) == before,
-              "file list compared")
+        live = json.loads((P["MEMDIR"] / "config.json").read_text())["promote"]
+        gate_open = dt.date.today().isoformat() >= str(live.get("apply_after")) and (
+            live.get("reviewed") or not live.get("require_review"))
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:             # a closed-gate copy; the live store is never applied to
+            fx = Path(td) / "vault"
+            shutil.copytree(P["MEMDIR"], fx / p["paths"]["AGENT_DIR"] / "Memory",
+                            ignore=shutil.ignore_patterns("Dream", "Spec", "Promotions"))
+            (fx / p["paths"]["AGENT_DIR"] / "Journal").mkdir(parents=True)
+            c = json.loads((fx / p["paths"]["AGENT_DIR"] / "Memory" / "config.json").read_text())
+            c["promote"].update({"apply_after": "2999-01-01", "reviewed": False, "require_review": True})
+            (fx / p["paths"]["AGENT_DIR"] / "Memory" / "config.json").write_text(json.dumps(c))
+            fenv = env | {"AGENT_VAULT": str(fx), "AGENT_MEMORY_STATE": str(Path(td) / "state")}
+            store = fx / p["paths"]["AGENT_DIR"] / "Memory" / "Store"
+            snap = {f.name: f.read_bytes() for f in store.iterdir()}
+            r = sh([py, str(T / "memory_promote.py"), "--apply"], env=fenv, timeout=120)
+            same = snap == {f.name: f.read_bytes() for f in store.iterdir()}
+        check("review gate refuses apply", r.returncode == 3 and same,
+              f"closed-gate copy: exit {r.returncode}, store {'unchanged' if same else 'CHANGED'}"
+              + ("; live gate is open (owner reviewed)" if gate_open else "; live gate closed"))
     if p["layers"]["smoke"] and not fast:
         r = sh([py, str(T / "memory_smoke.py")], env=env, timeout=600)
         check("smoke test", r.returncode == 0, r.stdout.strip()[-100:])
@@ -786,14 +851,23 @@ def verify(p: dict, out: Path, fast: bool) -> int:
               skip=not p["layers"]["capture"])
         subs = maestro_json(cli, "cue", "list") or []
         subs = subs if isinstance(subs, list) else subs.get("subscriptions", [])
-        names = {s.get("name") for s in subs}
+        live = {s.get("name") for s in subs if s.get("enabled", True) is not False}
         want = {s["name"] for s in p["cue_subscriptions"]}
-        check("schedules live", want <= names, f"{len(want & names)}/{len(want)} subscriptions visible to Cue")
-    r = sh([py, str(T / "run_guarded.py"), "--", "/bin/sh", "-c", f"echo guard-test >> '{ins}'"], env=env)
-    check("guard holds", BEGIN in ins.read_text() and "guard-test" not in ins.read_text(),
-          next((ln for ln in (r.stdout + r.stderr).splitlines() if "guard:" in ln), "no guard output")[:100])
-    for rej in ins.parent.glob(ins.name + ".rejected"):
-        rej.unlink()
+        check("schedules live", want <= live, f"{len(want & live)}/{len(want)} subscriptions visible and enabled")
+    rej = ins.with_name(ins.name + ".rejected")
+    rej_before = rej.read_bytes() if rej.exists() else None
+    before = ins.read_bytes()
+    r = sh([py, str(T / "run_guarded.py"), "--", "/bin/sh", "-c", f"echo guard-test >> {shlex.quote(str(ins))}"],
+           env=env)
+    out_ = r.stdout + r.stderr
+    restored = ins.read_bytes() == before
+    attempted = rej.exists() and b"guard-test" in rej.read_bytes()
+    check("guard holds", r.returncode == 0 and restored and attempted and f"{ins.name}: edited by job; reverted" in out_,
+          next((ln for ln in out_.splitlines() if "guard:" in ln), f"no guard output (exit {r.returncode})")[:100])
+    if rej_before is None:
+        rej.unlink(missing_ok=True)
+    else:
+        rej.write_bytes(rej_before)
     fails = [x for x in rows if x[1] == "FAIL"]
     verdict = "VERIFIED" if not fails else "PARTIAL"
     L = [f"# Memory Verify: {verdict}", "", "| Check | Result | Evidence |", "|---|---|---|"]

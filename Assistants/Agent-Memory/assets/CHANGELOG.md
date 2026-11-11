@@ -4,6 +4,41 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.11
+
+Eleven fixes to `install_memory.py` from an automated review of the playbook pull request, plus the guard runner
+the spec described but never shipped.
+
+### Changed
+
+| # | Change | Breaking? |
+|---|---|---|
+| R1 | Every model CLI is probed in turn; one failing probe no longer turns promotion and smoke off when another CLI works | No |
+| R2 | The slug is stored in the config and reused on update. On a fresh install, if another vault's qmd collections already use the name, a short hash of the vault path is appended | No |
+| R3 | `--agent-folder` and content folders must resolve inside the vault, or the plan is BLOCKED | No |
+| R4 | An update keeps the installed `promote.apply_after`, so the plan, the reminder and the config agree | No |
+| R5 | Every path and value in a scheduled command is shell-quoted (a vault path with a space broke every job) | **Yes, if your vault path has a space:** re-run `install_memory.py all` |
+| R6 | A tool installed before the installer existed is copied to `<tool>.before-<spec>` before it is upgraded | No |
+| R7 | A rules file the owner edited is kept; the shipped version lands beside it as `.new` | No |
+| R8 | `verify` tests the review gate on a closed-gate copy of the store, never on the live store | No |
+| R9 | "schedules live" requires every subscription to be enabled, not only listed | No |
+| R10 | "guard holds" requires proof: the job ran, the attempted edit reached the `.rejected` copy, and the guard reported the revert | No |
+| R11 | `verify` removes only a `.rejected` file it created itself | No |
+
+### New files
+
+`run_guarded.py`: runs one background job inside the protected-files guard (`protected_files.py`), reading the
+protected list from the config. Every scheduled job uses it.
+
+### New tests
+
+`test_install_memory.py` grows from 3 to 7 (R3, R5, R6, R7). Mutation check: all four fail against the `.10`
+installer.
+
+### Breaking
+
+R5 only. Then **set `spec_version: "2026-11-10.11"`**; a successful `install_memory.py verify` sets it for you.
+
 ## 2026-11-10.10
 
 A one-command installer. The Auto Run playbook that installs this spec took about 55 minutes as 74 agent tasks,
