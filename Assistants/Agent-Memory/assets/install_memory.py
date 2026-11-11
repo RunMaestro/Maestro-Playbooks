@@ -44,7 +44,7 @@ SPEC_FILES = ["ARCHITECTURE.md", "CHANGELOG.md", "SESSION-FORMAT.md", "harness-m
               "memory-record.schema.json"]
 BEGIN, END = "<!-- agent-memory:begin -->", "<!-- agent-memory:end -->"
 NUDGE_PREFIX, WAKE_PREFIX = "Memory: if something tangible", "Memory wake-up"
-QMD = ["npx", "--yes", "@tobilu/qmd"]
+QMD = shlex.split(os.environ.get("AGENT_MEMORY_QMD", "npx --yes @tobilu/qmd"))   # override: tests
 
 
 # ---------- small helpers ----------
@@ -241,6 +241,13 @@ def plan(a) -> dict:
     for f in folders:
         if not (vault / f).resolve().is_relative_to(vault):
             blockers.append(f"content folder {f!r} is outside the vault")
+    if search_on:                          # a collection name in use must point at this vault's folder
+        planned = {f"{slug}-journal": A / "Journal", f"{slug}-memory": A / "Memory", f"{slug}-tools": A / "Tools"}
+        planned.update({f"{slug}-notes-{slugify(f)}": (vault / f).resolve() for f in folders})
+        for name, folder in planned.items():
+            m = re.search(r"^\s*Path:\s*(.+)$", sh(QMD + ["collection", "show", name], timeout=60).stdout, re.M)
+            if m and Path(m.group(1).strip()).resolve() != folder.resolve():
+                blockers.append(f"qmd collection {name} already indexes {m.group(1).strip()}; pass a different --slug")
     apply_after = (dt.date.today() + dt.timedelta(days=a.review_days)).isoformat()
     if mode == "UPDATE":                      # an update keeps the installed gate date; apply keeps it anyway
         try:
@@ -538,7 +545,10 @@ def apply(p: dict, out: Path) -> int:
                 continue
             if f not in shipped:
                 # installed before this installer existed: provenance unknown, so keep a copy before upgrading
-                dst.with_name(f"{f}.before-{spec_version()}").write_bytes(cur)
+                bk = dst.with_name(f"{f}.before-{spec_version()}")
+                if bk.exists():
+                    bk = dst.with_name(f"{f}.before-{spec_version()}-{dt.datetime.now():%Y%m%d%H%M%S}")
+                bk.write_bytes(cur)
                 backed.append(f)
         dst.write_bytes(new)
         dst.chmod(0o755)

@@ -1487,6 +1487,7 @@
         "memstore.py",
         "protected_files.py",
         "qmd-update.sh",
+        "qmd_stub_for_tests.py",
         "rules-example.md",
         "run_guarded.py",
         "smoke.example.json",

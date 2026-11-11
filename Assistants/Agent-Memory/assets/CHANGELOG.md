@@ -4,6 +4,24 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.12
+
+Two follow-ups from the same review.
+
+| # | Change | Breaking? |
+|---|---|---|
+| R12 | `plan` reads each planned qmd collection's folder (`qmd collection show`). A name already indexing another folder BLOCKS the plan instead of being reused, so two vaults with one slug never share a collection | No |
+| R13 | A tool's pre-installer backup never overwrites an earlier backup of the same name (a timestamp is added) | No |
+
+Kept on purpose: a tool installed before the installer existed is backed up and then upgraded, not left in place
+with the new copy beside it. Leaving the old tool active would keep older installs on code without the G27 and
+G29 data-loss fixes until someone moved each `.new` file by hand.
+
+New test files: `test_install_memory.py` grows to 8 (R12, with `qmd_stub_for_tests.py` standing in for qmd). It
+fails against the `.11` installer.
+
+**Set `spec_version: "2026-11-10.12"`**; a successful `install_memory.py verify` sets it.
+
 ## 2026-11-10.11
 
 Eleven fixes to `install_memory.py` from an automated review of the playbook pull request, plus the guard runner

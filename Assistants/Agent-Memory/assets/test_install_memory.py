@@ -107,6 +107,24 @@ def test_edited_rules_file_is_kept():
         assert run(t).returncode == 0
         assert "my own journal rule" in rule.read_text() and (rule.parent / "journal.md.new").exists()
 
+
+def test_two_vaults_with_one_slug_do_not_share_a_collection():
+    """R2: a collection name already used by another vault blocks the plan instead of being reused."""
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        stub = HERE / "qmd_stub_for_tests.py"
+        os.environ["AGENT_MEMORY_QMD"] = f"{sys.executable} {stub}"
+        os.environ["QMD_STUB_STATE"] = str(t / "qmd.json")
+        try:
+            for v in ("a", "b"):
+                (t / v).mkdir()
+            (t / "qmd.json").write_text(json.dumps({"bot-journal": str(t / "a" / "Agent" / "Journal")}))
+            r = run(t, "--slug", "bot", "--search", "qmd", vault=t / "b", cmd="plan")
+            assert r.returncode == 2 and "already indexes" in r.stdout, r.stdout[-400:]
+        finally:
+            os.environ.pop("AGENT_MEMORY_QMD", None)
+            os.environ.pop("QMD_STUB_STATE", None)
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):
