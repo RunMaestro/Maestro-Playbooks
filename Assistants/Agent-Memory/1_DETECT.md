@@ -131,7 +131,7 @@ judge, Node for search, Maestro Cue for the schedules, and the agent's own Maest
       ```bash
       crontab -l 2>/dev/null | grep -nE 'qmd( |-)update'
       launchctl list 2>/dev/null | grep -i qmd
-      maestro-cli cue list --json 2>/dev/null | grep -oE '"name":"[^"]*search-index[^"]*"|qmd-update\.sh|qmd update' | sort -u
+      maestro-cli cue list --json 2>/dev/null | grep -oE '"name": *"[^"]*search-index[^"]*"|qmd-update\.sh|qmd update' | sort -u
       ```
 
       Record `REINDEX: existing (<where>)` or `REINDEX: none`.
