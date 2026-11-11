@@ -158,6 +158,10 @@ the final plan from those parts.
          journal entry does not replace a reply. With `**Why:**` (promotion learns only from what is captured)
          and `**How to apply:**` lines.
 
+      One fact per file, the way the store wants it: put the answer to its smoke question in the first
+      paragraph, and keep each file under about 1500 characters. A long reference file (the whole path table)
+      belongs in `Memory.md`, the home page; the memory points there.
+
       In `UPDATE` mode, skip a seed whose topic already has a memory.
 
 - [ ] **Smoke questions** (`MEMDIR/smoke.json`, format of `assets/smoke.example.json`): three `expect`

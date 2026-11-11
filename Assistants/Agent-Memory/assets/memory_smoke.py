@@ -33,6 +33,10 @@ import memstore as ms  # noqa: E402
 QUESTIONS = ms.MEMDIR / "smoke.json"
 
 
+# G23: how much of each memory the judge sees. It was 1200, and 160 of 232 real memories are longer, so a
+# memory whose answer sat past that point failed its own question. 6000 covers the longest real memory (5141).
+JUDGE_CHARS = 6000
+
 JUDGE_Q = ("Do the `memories` state the answer to `question` directly, "
            "so it could be answered without guessing?")
 
@@ -73,7 +77,7 @@ def main() -> int:
     rows, answered_ok, ans_total, abst_ok, abst_total = [], 0, 0, 0, 0
     for item in qs:
         hits = ms.recall(item["q"], mems, k=5)
-        ctx = "\n\n".join(f"[{m.slug}] {m.description}\n{m.body[:1200]}" for _, m in hits) or "(no memories)"
+        ctx = "\n\n".join(f"[{m.slug}] {m.description}\n{m.body[:JUDGE_CHARS]}" for _, m in hits) or "(no memories)"
         try:
             p = judge(item["q"], ctx)
         except Exception as e:

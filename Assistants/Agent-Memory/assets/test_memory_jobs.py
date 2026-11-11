@@ -9,6 +9,7 @@ G15 (model_cmd with a stub command). 2026-11-10.5 adds G16 (one test per credent
 built at run time so this file holds nothing token-shaped), G17 (CLI that exits non-zero) and G18 (store_dir).
 2026-11-10.6 adds G19 (authorization header or assignment, each form tested).
 2026-11-10.7 adds G21 (`"model": null` means the default model) and G22 (no vault-only tag in the Promotions log).
+2026-11-10.8 adds G23 (the smoke judge sees a memory past its first 1200 characters).
 """
 import importlib
 import json
@@ -629,6 +630,23 @@ def test_g22_promotions_log_carries_no_vault_tag():
         assert mp.main(["--date", DAY, "--dry-run"]) == 0
         log = (ms.PROMOTIONS / f"{DAY}.md").read_text()
         assert "#claude" not in log, log[-200:]
+
+
+# ---------- G23 (spec 2026-11-10.8) ----------
+
+def test_g23_smoke_judge_sees_text_past_1200_chars():
+    with tempfile.TemporaryDirectory() as t:
+        ms, mp, sm, _ = vault(Path(t))
+        ms.write_new("reference_jobs", "Jobs", "When the nightly memory jobs run", "reference",
+                     ("Background detail. " * 90) + "The nightly jobs run at 03:15.", {"said_by": "owner"})
+        (ms.MEMDIR / "smoke.json").write_text(json.dumps({"questions": [
+            {"q": "When do the nightly memory jobs run?", "expect": "reference_jobs"},
+            {"q": "What is Alex's blood type?", "abstain": True},
+            {"q": "Which airline does Alex fly?", "abstain": True},
+            {"q": "What is the name of Alex's boat?", "abstain": True}]}))
+        sm.judge = lambda q, ctx: (0.9 if "03:15" in ctx else 0.1) if "nightly" in q else 0.1
+        sys.argv = ["memory_smoke.py"]
+        assert sm.main() == 0, json.loads((ms.STATE / "smoke.json").read_text())["rows"]
 
 if __name__ == "__main__":
     fails = 0

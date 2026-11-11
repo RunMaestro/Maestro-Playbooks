@@ -4,6 +4,26 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.8
+
+One bug found by a live install of the Auto Run playbook on a fresh agent.
+
+### Changed
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| G23 | `memory_smoke.py` | The judge sees up to `JUDGE_CHARS` (6000) characters of each recalled memory, not the first 1200. A memory whose answer sat past character 1200 failed its own smoke question even though recall ranked it first. In the reference install 160 of 232 memories are longer than 1200 characters; the longest is 5141 | No. A smoke run can only pass more often for a correct store |
+
+### New tests
+
+`test_memory_jobs.py` grows from 39 to 40: `test_g23_smoke_judge_sees_text_past_1200_chars` (the answer sits after
+1700 characters of filler). Mutation check: it fails against the `.7` `memory_smoke.py`.
+
+### Breaking
+
+None. Copy `memory_smoke.py` and `test_memory_jobs.py`, then **set `spec_version: "2026-11-10.8"`** in both configs
+after `test_memory_jobs.py` (40) and `test_memory.py` (11) pass.
+
 ## 2026-11-10.7
 
 Two bugs found by the agent that packaged this spec as an Auto Run playbook.

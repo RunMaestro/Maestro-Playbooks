@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Implementation Guide
 
-Spec version: 2026-11-10.7
+Spec version: 2026-11-10.8
 
 A layered long-term memory for a Claude Code agent that lives in a markdown vault. It has seven layers, each
 with its own store and its own off switch. Every memory is a plain markdown file that a human can read and edit.
