@@ -91,7 +91,8 @@ schedules that run them, and the agent settings that make the agent use them.
 ## Agent Instructions
 
 You are installing a memory system into the agent you are running as. The design and every script ship with
-this playbook in `{{AUTORUN_FOLDER}}/assets/`. Read `assets/ARCHITECTURE.md` section 1 (the layers) and section
+this playbook in its `assets/` folder. Document 1 finds that folder and records it as `ASSETS`: an Exchange import
+puts the playbook in a subfolder of `{{AUTORUN_FOLDER}}`, so never assume `{{AUTORUN_FOLDER}}/assets/`. Read `assets/ARCHITECTURE.md` section 1 (the layers) and section
 3 "Capture Without Hooks" before you plan anything. `assets/SPEC-README.md` is the spec's own build guide and
 holds the reference checks; this playbook's documents are the build order you follow.
 
@@ -110,3 +111,15 @@ Configured values appear in the task documents as `[OWNER_NAME]`, `[VAULT_PATH]`
 `[OWNER_CONTENT_FOLDERS]`, `[TIMEZONE]`, `[NIGHTLY_TIME]`, `[WEEKLY_SLOT]`, `[REVIEW_DAYS]`, `[REQUIRE_REVIEW]`,
 `[OFF_LIMITS]`, `[ENABLE_DREAM]`, `[SEARCH]` and `[UPDATE_AGENT_MESSAGES]`. Read them from this prompt. Do not
 guess.
+
+---
+
+## Your Task Now
+
+This prompt replaces Maestro's default Auto Run prompt, so it names the document itself.
+
+Process tasks from this document: **{{DOCUMENT_PATH}}**
+
+Read it, do the **first unchecked task** (`- [ ]`) only, then check it off (`- [x]`) in that file with a short
+note of what you did. Then stop: a fresh session does the next task. If there are no unchecked tasks left, say
+so and stop. Do this even if the memory system looks installed already: the documents handle re-runs.

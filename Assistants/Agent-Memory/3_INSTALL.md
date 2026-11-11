@@ -40,7 +40,7 @@ value of every `<PLACEHOLDER>` in it (paths, ids, slug, commands). Never run a c
 
       ```bash
       mkdir -p "<TOOLS>" "<STORE>" "<JOURNAL>" "<RULES>" "<SPEC>" "<MEMDIR>/Promotions" "<STATE>"
-      cd "{{AUTORUN_FOLDER}}/assets"
+      cd "<ASSETS>"        # from the path table; never {{AUTORUN_FOLDER}}/assets
       for f in memstore.py memory_promote.py memory_lint.py memory_smoke.py protected_files.py run_guarded.py \
                memory_index_check.py claude_md_audit.py link_store.py memory.py cc_sessions.py \
                test_memory.py test_memory_jobs.py qmd-update.sh; do
@@ -85,15 +85,17 @@ value of every `<PLACEHOLDER>` in it (paths, ids, slug, commands). Never run a c
 
       It must exit 0.
 
-- [ ] **Link the harness memory folder (Claude Code only).** Dry run first, read it, then apply:
+- [ ] **Harness memory folder (Claude Code only): dry run only.** The apply writes outside the working
+      directory, so the owner runs it (document 6 hands over the command). If the folder is already a symlink to
+      `<STORE>`, record "linked" and skip:
 
       ```bash
       python3 "<TOOLS>/link_store.py" --store "<STORE>" --cwd "{{AGENT_PATH}}" "<CLAUDE_CONFIG_DIR>"
-      python3 "<TOOLS>/link_store.py" --store "<STORE>" --cwd "{{AGENT_PATH}}" --apply --backup "<STATE>/backup" "<CLAUDE_CONFIG_DIR>"
-      python3 "<TOOLS>/link_store.py" --store "<STORE>" --cwd "{{AGENT_PATH}}" "<CLAUDE_CONFIG_DIR>"
       ```
 
-      The last dry run must print only `ok` lines. Existing memories are backed up, then merged into the store;
+      Record the planned apply command, for the owner:
+      `python3 "<TOOLS>/link_store.py" --store "<STORE>" --cwd "{{AGENT_PATH}}" --apply --backup "<STATE>/backup" "<CLAUDE_CONFIG_DIR>"`.
+      After the owner runs it, a dry run must print only `ok` lines. Existing memories are backed up, then merged into the store;
       a name clash keeps the store copy and reports the other. After the merge, run the index check again and
       add a pointer line to `MEMORY.md` for every unindexed memory it names.
 

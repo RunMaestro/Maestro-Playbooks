@@ -69,6 +69,7 @@ value of every `<PLACEHOLDER>` in it (paths, ids, slug, commands). Never run a c
       | Verdict | Next step |
       |---|---|
       | `VERIFIED` | Work as usual. Tomorrow, open `<MEMDIR>/Promotions/` and read the first proposals |
+      | any, Claude Code, residency `OWNER` | First: paste `! <the apply command from MEMORY_INSTALL_LOG.md>` into this agent's chat, so the harness loads the same `MEMORY.md` the jobs maintain |
       | `VERIFIED-WITH-GAPS` | The step that turns on the most useful skipped layer (usually: install a model CLI, then re-run `5_VERIFY.md`) |
       | `PARTIAL` | The fix named in `MEMORY_VERIFY.md`, then re-run only `5_VERIFY.md` |
       | `FAILED` | The fix named in `MEMORY_VERIFY.md`, re-run `5_VERIFY.md`, then `maestro-cli cue enable` each `<slug>-memory-*` subscription |

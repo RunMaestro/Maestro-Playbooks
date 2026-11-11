@@ -23,7 +23,7 @@ the final plan from those parts.
 ### Task 1: Read detection
 
 - [ ] **Read `{{AUTORUN_FOLDER}}/MEMORY_DETECT.md`** and the agent prompt. If the DETECT SUMMARY says
-      `BLOCKED`, stop and say so. Read `{{AUTORUN_FOLDER}}/assets/ARCHITECTURE.md` sections 1 to 3 once, so the
+      `BLOCKED`, stop and say so. Read `ASSETS/ARCHITECTURE.md` (`ASSETS` from `MEMORY_DETECT.md`) sections 1 to 3 once, so the
       plan matches the design.
 
 ### Task 2: Fix the names and paths
@@ -38,6 +38,7 @@ the final plan from those parts.
 
       | Name | Path |
       |---|---|
+      | `ASSETS` | the bundled assets folder recorded in `MEMORY_DETECT.md`. Every `assets/<file>` in this playbook means `ASSETS/<file>` |
       | `VAULT` | `[VAULT_PATH]` |
       | `AGENT_DIR` | `[AGENT_FOLDER]` (relative to `VAULT`) |
       | `TOOLS` | `VAULT/AGENT_DIR/Tools` |
@@ -132,8 +133,11 @@ the final plan from those parts.
 
 ### Task 6: Plan the store and its seed
 
-- [ ] **Store residency (Claude Code only).** Plan the `link_store.py` run that links the harness memory folder
-      to `STORE`, first as a dry run, then with `--apply --backup STATE/backup`:
+- [ ] **Store residency (Claude Code only).** Linking the harness memory folder to `STORE` writes outside the
+      agent's working directory, and an agent never does that on its own, whatever a config says. So the agent
+      runs only the dry run, and the owner runs the apply: plan the exact apply command for `MEMORY_SETUP.md`'s
+      next step, written so the owner can paste it into this agent's chat with a `!` prefix. Until then the
+      new-session message's wake-up line (read `STORE/MEMORY.md`) covers it. The commands:
 
       ```bash
       python3 TOOLS/link_store.py --store STORE --cwd {{AGENT_PATH}} <CLAUDE_CONFIG_DIR>
@@ -196,8 +200,12 @@ the final plan from those parts.
       - **New-session message** (prefixed to the first message of a session): the detected message, unchanged,
         then a blank line, then:
 
-        `Memory wake-up: read <STORE>/MEMORY.md if your harness has not loaded it, then the last three files in <JOURNAL>.`
+        `Memory wake-up (skip it when this message carries an Auto Run task document: do the task): read <STORE>/MEMORY.md if your harness has not loaded it, then the last three files in <JOURNAL>.`
         followed, if L5 is ON, by ` Run python3 <TOOLS>/memory.py show and treat its digest as background.`
+
+      **On a re-run** the strings may already hold an earlier version of these lines (one starting `Memory:` in
+      the nudge, one starting `Memory wake-up` in the new-session message). Replace that line in place with the
+      new one; never add a second. Everything else in both strings stays exactly as detected.
 
       Use the real absolute paths. If `[UPDATE_AGENT_MESSAGES]` is `no`, record the two lines as text for the
       summary, so the user can paste them.
@@ -208,6 +216,12 @@ the final plan from those parts.
       promotion and lint 30 minutes later, the index check 60 minutes later, the smoke test and the
       instructions audit at `[WEEKLY_SLOT]`, search every 120 minutes. Drop the subscriptions of layers that are
       OFF. Name every subscription `<slug>-memory-<job>`.
+
+      **Search re-index: at most one per machine.** `qmd update` re-indexes every collection on the account, so
+      one scheduled run covers this agent's new collections too. If detection recorded `REINDEX: existing`, drop
+      `<slug>-memory-search-index` and write which job covers it. If an earlier install of this agent created
+      `<slug>-memory-search-index` while another re-index exists, plan its removal. Only with `REINDEX: none`
+      keep it, and say in the plan that it re-indexes every collection on the machine.
 
       **SSH-remote agents:** a command action runs on this machine, not on the remote host. For a remote agent,
       convert each subscription to `action: prompt` with the prompt

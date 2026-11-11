@@ -13,7 +13,7 @@
 Find every fact the plan needs, and every blocker, before anything is installed. Nothing in this document
 writes outside `{{AUTORUN_FOLDER}}`.
 
-The memory system has seven layers (`{{AUTORUN_FOLDER}}/assets/ARCHITECTURE.md`, section 1). Each one depends
+The memory system has seven layers (`ARCHITECTURE.md` in this playbook's `assets/` folder, section 1). Each one depends
 on something on this machine: Python and PyYAML for the jobs, a headless model CLI for promotion and the smoke
 judge, Node for search, Maestro Cue for the schedules, and the agent's own Maestro settings for capture.
 
@@ -30,11 +30,18 @@ judge, Node for search, Maestro Cue for the schedules, and the agent's own Maest
       blocking. If `[VAULT_PATH]` is not `{{AGENT_PATH}}` and not inside it, record a conflict: the agent can
       only write inside its working directory.
 
-- [ ] **Confirm the bundled assets arrived**:
+- [ ] **Find the bundled assets and record the folder as `ASSETS`.** `{{AUTORUN_FOLDER}}` is the Auto Run
+      folder itself. A Playbook Exchange import puts this playbook in a subfolder of it (by default
+      `agent-memory/`), so the assets are normally at `{{AUTORUN_FOLDER}}/agent-memory/assets/`, not at
+      `{{AUTORUN_FOLDER}}/assets/`. Find them instead of assuming:
 
       ```bash
-      ls "{{AUTORUN_FOLDER}}/assets/"
+      ASSETS="$(dirname "$(find "{{AUTORUN_FOLDER}}" -maxdepth 3 -path '*/assets/run_guarded.py' | head -1)")"
+      echo "ASSETS=$ASSETS"; ls "$ASSETS"
       ```
+
+      Record the absolute path as `ASSETS` at the top of `MEMORY_DETECT.md`. Every later document reads it from
+      there and never writes `{{AUTORUN_FOLDER}}/assets`.
 
       Expect, among others, `memstore.py`, `memory_promote.py`, `memory_lint.py`, `memory_smoke.py`,
       `memory.py`, `run_guarded.py`, `cue-memory.yaml` and `CLAUDE.md.fragment.md`. If the folder is missing,
@@ -118,6 +125,17 @@ judge, Node for search, Maestro Cue for the schedules, and the agent's own Maest
       npx --yes @tobilu/qmd collection list 2>&1 | head -60
       ```
 
+      **Find an existing machine-wide re-index.** `qmd update` has no per-collection filter: whoever runs it
+      re-indexes every collection on this account. Look for one already scheduled:
+
+      ```bash
+      crontab -l 2>/dev/null | grep -nE 'qmd( |-)update'
+      launchctl list 2>/dev/null | grep -i qmd
+      maestro-cli cue list --json 2>/dev/null | grep -oE '"name":"[^"]*search-index[^"]*"|qmd-update\.sh|qmd update' | sort -u
+      ```
+
+      Record `REINDEX: existing (<where>)` or `REINDEX: none`.
+
       Record the version (or `qmd: not installed`) and **every existing collection name**. qmd collections are
       global to this user account, not per project, so another agent may already own `agent-journal`.
       Document 2 picks collision-free names.
@@ -156,7 +174,7 @@ judge, Node for search, Maestro Cue for the schedules, and the agent's own Maest
       Record:
 
       - **Install mode**: `FRESH`, or `UPDATE` when `[AGENT_FOLDER]/Memory/config.json` exists. Record its
-        `spec_version` and compare with `Spec version:` in `{{AUTORUN_FOLDER}}/assets/ARCHITECTURE.md`.
+        `spec_version` and compare with `Spec version:` in `ASSETS/ARCHITECTURE.md`.
       - Whether a journal already exists, and its file naming (`YYYY-MM-DD.md` or other). A different layout is
         kept, and document 2 sets `promote.journal_glob` to match it.
       - The instruction file for this harness: `CLAUDE.md` for Claude Code, `AGENTS.md` for the others. Whether

@@ -106,6 +106,9 @@ Working files land in the Auto Run folder: `MEMORY_DETECT.md`, `MEMORY_PLAN.md`,
 | `memory-config.example.json`, `config.example.json`, `smoke.example.json`, `memory-record.schema.json` | Config and format templates |
 | `ARCHITECTURE.md`, `CHANGELOG.md`, `SPEC-README.md`, `SESSION-FORMAT.md`, `harness-memory-format.md`, `CLAUDE.md.fragment.md`, `rules-example.md` | The design, copied into `Memory/Spec/` for you to read |
 
+> **Search re-index.** `qmd update` re-indexes every collection on the account, so the playbook schedules one only
+> when no machine-wide re-index exists already.
+
 > **Exchange only.** The `assets/` folder travels with Playbook Exchange installs. Maestro's share flow
 > transports markdown only, and this playbook cannot run without its assets.
 

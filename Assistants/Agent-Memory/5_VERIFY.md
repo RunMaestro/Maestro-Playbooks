@@ -11,7 +11,7 @@
 ## Purpose
 
 Prove each layer works, with a command and its output for every check. These are the spec's own acceptance
-checks (`{{AUTORUN_FOLDER}}/assets/SPEC-README.md`), run against this install.
+checks (`SPEC-README.md` in `ASSETS`, the folder recorded in `MEMORY_DETECT.md`), run against this install.
 
 **This document can run on its own.** After a fix, re-run only this document. If the logs from documents 3 and
 4 are absent, recover the paths from `MEMORY_PLAN.md`, or from `<MEMDIR>/config.json` and the Cue file.
@@ -57,7 +57,8 @@ value of every `<PLACEHOLDER>` in it (paths, ids, slug, commands). Never run a c
 
       PASS: exit 1 naming both, then exit 0 after cleanup.
 
-- [ ] **Residency (Claude Code only):** the harness memory folder is a symlink to `<STORE>`:
+- [ ] **Residency (Claude Code only; `OWNER` when the owner has not run the apply yet, which is not a failure):**
+      the harness memory folder is a symlink to `<STORE>`:
 
       ```bash
       ls -la "<CLAUDE_CONFIG_DIR>/projects/<cwd-slug>/" | grep memory
