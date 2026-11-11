@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "memory-record.schema.json",
+  "title": "L5 memory record (front matter of Store/<slug>.md and Archive/<slug>.md)",
+  "description": "One memory per file. Front matter is one `key: value` per line; non-string values are JSON. The body is the description, then the [[links]]. Files hold states; continuous scores (R) are computed, never stored.",
+  "type": "object",
+  "required": ["name", "description", "type", "status", "learned"],
+  "properties": {
+    "name": {"type": "string", "pattern": "^[a-z0-9-]{1,56}$", "description": "Slug, also the file name. Unique across Store and Archive."},
+    "description": {"type": "string", "maxLength": 240, "description": "The fact, one plain sentence written about the subject."},
+    "type": {"enum": ["rule", "preference", "fact", "project", "procedure", "insight", "episode", "reference"]},
+    "subject": {"type": "string", "maxLength": 40, "description": "Entity anchor: a person or a thing, never a phrase. Drives recall adjacency."},
+    "said_by": {"enum": ["owner", "task", "inferred"], "description": "Source tier for CONTRADICT: owner > task > inferred."},
+    "salience": {"type": "integer", "minimum": 1, "maximum": 5, "description": "Ranking input for the hot budget; set at write."},
+    "learned": {"type": "string", "format": "date"},
+    "last_reinforced": {"type": "string", "format": "date", "description": "Last real touch: a recall or a restatement. Never a file mtime."},
+    "reinforcements": {"type": "integer", "minimum": 0, "description": "Grows stability: S = S0 x min(1.8^n, 10)."},
+    "days": {"type": "array", "items": {"type": "string", "format": "date"}, "description": "Distinct days this memory was seen. Drives episode->fact promotion (3+) and REFLECT evidence."},
+    "status": {"enum": ["active", "dormant", "superseded", "archived"]},
+    "supersedes": {"type": "string", "description": "Slug this memory replaced."},
+    "superseded_by": {"type": "string"},
+    "valid_to": {"type": "string", "format": "date", "description": "Set when superseded: the day the fact stopped being current."},
+    "sources": {"type": "array", "items": {"type": "string"}, "maxItems": 12, "description": "Provenance, e.g. dream:2026-11-01, reflect:2026-11-02, live."},
+    "links": {"type": "array", "items": {"type": "string"}, "maxItems": 8, "description": "Slugs of linked memories, written both ways by LINK and REFLECT."},
+    "evidence": {"type": "string", "maxLength": 120, "description": "Up to 12 quoted words from the transcript that justify the memory."},
+    "pinned": {"type": "boolean", "description": "Exempt from decay and archival, like a rule."},
+    "forgotten": {"type": "boolean", "description": "Forgotten on request: lives in Archive, never recalled."}
+  }
+}

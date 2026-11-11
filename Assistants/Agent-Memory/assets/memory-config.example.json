@@ -1,0 +1,41 @@
+{
+  "spec_version": "2026-11-10.7",
+  "owner": "Alex",
+  "agent": "Ada",
+  "model_cmd": null,
+  "store_dir": "Store",
+  "enabled": true,
+  "readonly": false,
+  "promote": {
+    "enabled": true,
+    "mode": "dry-run",
+    "apply_after": "2026-12-01",
+    "require_review": true,
+    "reviewed": false,
+    "sources": [
+      "journal",
+      "timeline",
+      "activity"
+    ],
+    "model": "sonnet",
+    "max_new_per_night": 8,
+    "max_source_chars": 60000,
+    "off_limits": "\\b(old-employer|private-project)\\b",
+    "off_limits_words": "the old employer or the private project",
+    "promoted_shard": null,
+    "journal_glob": "Journal/{date}.md",
+    "maestro_cli": null
+  },
+  "lint": {
+    "enabled": true,
+    "verify_stamp_days": 30
+  },
+  "decisions": {
+    "enabled": true
+  },
+  "smoke": {
+    "enabled": true,
+    "min_abstain": 3,
+    "model": "haiku"
+  }
+}
