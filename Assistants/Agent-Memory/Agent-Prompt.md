@@ -90,27 +90,42 @@ schedules that run them, and the agent settings that make the agent use them.
 
 ## Agent Instructions
 
-You are installing a memory system into the agent you are running as. The design and every script ship with
-this playbook in its `assets/` folder. Document 1 finds that folder and records it as `ASSETS`: an Exchange import
-puts the playbook in a subfolder of `{{AUTORUN_FOLDER}}`, so never assume `{{AUTORUN_FOLDER}}/assets/`. Read `assets/ARCHITECTURE.md` section 1 (the layers) and section
-3 "Capture Without Hooks" before you plan anything. `assets/SPEC-README.md` is the spec's own build guide and
-holds the reference checks; this playbook's documents are the build order you follow.
+You are installing a layered memory into the agent you are running as. One bundled script does the work:
+`install_memory.py`, in this playbook's `assets/` folder. An Exchange import puts the playbook in a subfolder of
+`{{AUTORUN_FOLDER}}`, so find the script instead of assuming its path:
+
+```bash
+INSTALLER="$(find "{{AUTORUN_FOLDER}}" -maxdepth 3 -path '*/assets/install_memory.py' | head -1)"
+```
+
+Pass the configuration above to it as flags, mapped like this:
+
+| Prompt value | Flag |
+|---|---|
+| `[OWNER_NAME]` | `--owner` |
+| `[VAULT_PATH]` | `--vault` |
+| `[AGENT_FOLDER]` | `--agent-folder` |
+| `[OWNER_CONTENT_FOLDERS]` | `--content-folders` |
+| `[TIMEZONE]` | `--timezone` |
+| `[NIGHTLY_TIME]` | `--nightly` |
+| `[WEEKLY_SLOT]` | `--weekly` |
+| `[REVIEW_DAYS]` | `--review-days` |
+| `[REQUIRE_REVIEW]` | `--require-review` |
+| `[OFF_LIMITS]` | `--off-limits` |
+| `[ENABLE_DREAM]` | `--dream` |
+| `[SEARCH]` | `--search` |
+| `[UPDATE_AGENT_MESSAGES]` | `--update-messages` |
+
+Always add `--agent-name "{{AGENT_NAME}}" --out "{{AUTORUN_FOLDER}}"`. Quote every value.
 
 Rules that hold for every document:
 
-1. **Capture never depends on harness hooks.** It runs on the Maestro nudge message (journal every turn),
-   Maestro's turn history, and Maestro Cue schedules. Do not install hooks.
-2. **Never overwrite what the user already has.** Instruction files, rules, the Cue file, the nudge and the
-   new-session message are appended to, inside marked blocks where the format allows. Read before you write.
-3. **Background jobs never edit the agent's identity.** Every scheduled job runs through
-   `run_guarded.py`, which reverts any change to `CLAUDE.md`, `AGENTS.md` and the rules files.
-4. **Promotion starts in dry-run.** Nothing writes to the fact store on its own until the review gate opens.
-5. **Evidence, not assumption.** Every check in `5_VERIFY` runs a command and records its output.
-
-Configured values appear in the task documents as `[OWNER_NAME]`, `[VAULT_PATH]`, `[AGENT_FOLDER]`,
-`[OWNER_CONTENT_FOLDERS]`, `[TIMEZONE]`, `[NIGHTLY_TIME]`, `[WEEKLY_SLOT]`, `[REVIEW_DAYS]`, `[REQUIRE_REVIEW]`,
-`[OFF_LIMITS]`, `[ENABLE_DREAM]`, `[SEARCH]` and `[UPDATE_AGENT_MESSAGES]`. Read them from this prompt. Do not
-guess.
+1. **The script does the mechanics; you check its output.** Do not redo by hand what the script does.
+2. **Never overwrite what the user already has.** The script appends or replaces only its own marked blocks and
+   named entries. If its plan shows a conflict, stop and report it rather than forcing it.
+3. **Never write outside the working directory yourself.** The one step that needs to (linking the harness
+   memory folder) is handed to the owner as a command.
+4. **Evidence, not assumption.** Report what the script printed, not what you expect it did.
 
 ---
 
@@ -122,4 +137,4 @@ Process tasks from this document: **{{DOCUMENT_PATH}}**
 
 Read it, do the **first unchecked task** (`- [ ]`) only, then check it off (`- [x]`) in that file with a short
 note of what you did. Then stop: a fresh session does the next task. If there are no unchecked tasks left, say
-so and stop. Do this even if the memory system looks installed already: the documents handle re-runs.
+so and stop.

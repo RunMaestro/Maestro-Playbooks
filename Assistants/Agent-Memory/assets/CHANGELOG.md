@@ -4,6 +4,91 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.13
+
+| # | Change | Breaking? |
+|---|---|---|
+| R14 | `.12`'s collection check reused the variable that held the agent's name, so every `plan` with search on recorded a collection name as the agent name (it reached the config's `agent`, the home page and the seed memories). Renamed | No. Re-run `install_memory.py all` on a `.12` install to correct the name |
+
+`test_install_memory.py` now asserts the planned agent name in the fresh-install and two-vault tests.
+
+**Set `spec_version: "2026-11-10.13"`**; a successful `install_memory.py verify` sets it.
+
+## 2026-11-10.12
+
+Two follow-ups from the same review.
+
+| # | Change | Breaking? |
+|---|---|---|
+| R12 | `plan` reads each planned qmd collection's folder (`qmd collection show`). A name already indexing another folder BLOCKS the plan instead of being reused, so two vaults with one slug never share a collection | No |
+| R13 | A tool's pre-installer backup never overwrites an earlier backup of the same name (a timestamp is added) | No |
+
+Kept on purpose: a tool installed before the installer existed is backed up and then upgraded, not left in place
+with the new copy beside it. Leaving the old tool active would keep older installs on code without the G27 and
+G29 data-loss fixes until someone moved each `.new` file by hand.
+
+New test files: `test_install_memory.py` grows to 8 (R12, with `qmd_stub_for_tests.py` standing in for qmd). It
+fails against the `.11` installer.
+
+**Set `spec_version: "2026-11-10.12"`**; a successful `install_memory.py verify` sets it.
+
+## 2026-11-10.11
+
+Eleven fixes to `install_memory.py` from an automated review of the playbook pull request, plus the guard runner
+the spec described but never shipped.
+
+### Changed
+
+| # | Change | Breaking? |
+|---|---|---|
+| R1 | Every model CLI is probed in turn; one failing probe no longer turns promotion and smoke off when another CLI works | No |
+| R2 | The slug is stored in the config and reused on update. On a fresh install, if another vault's qmd collections already use the name, a short hash of the vault path is appended | No |
+| R3 | `--agent-folder` and content folders must resolve inside the vault, or the plan is BLOCKED | No |
+| R4 | An update keeps the installed `promote.apply_after`, so the plan, the reminder and the config agree | No |
+| R5 | Every path and value in a scheduled command is shell-quoted (a vault path with a space broke every job) | **Yes, if your vault path has a space:** re-run `install_memory.py all` |
+| R6 | A tool installed before the installer existed is copied to `<tool>.before-<spec>` before it is upgraded | No |
+| R7 | A rules file the owner edited is kept; the shipped version lands beside it as `.new` | No |
+| R8 | `verify` tests the review gate on a closed-gate copy of the store, never on the live store | No |
+| R9 | "schedules live" requires every subscription to be enabled, not only listed | No |
+| R10 | "guard holds" requires proof: the job ran, the attempted edit reached the `.rejected` copy, and the guard reported the revert | No |
+| R11 | `verify` removes only a `.rejected` file it created itself | No |
+
+### New files
+
+`run_guarded.py`: runs one background job inside the protected-files guard (`protected_files.py`), reading the
+protected list from the config. Every scheduled job uses it.
+
+### New tests
+
+`test_install_memory.py` grows from 3 to 7 (R3, R5, R6, R7). Mutation check: all four fail against the `.10`
+installer.
+
+### Breaking
+
+R5 only. Then **set `spec_version: "2026-11-10.11"`**; a successful `install_memory.py verify` sets it for you.
+
+## 2026-11-10.10
+
+A one-command installer. The Auto Run playbook that installs this spec took about 55 minutes as 74 agent tasks,
+almost all of it per-task session overhead around mechanical steps. The mechanics are now one script.
+
+### New files
+
+| File | What it is |
+|---|---|
+| `install_memory.py` | `plan` (detect + plan, changes nothing), `apply`, `verify`, or `all`. Installs the tools and spec, the store with three short seed memories, both configs, the instruction block (between `agent-memory` markers) and rules files, the first journal entry, qmd collections (embedding model in the background), the agent's nudge and new-session message (memory lines added or replaced, the rest kept), Maestro Cue subscriptions and the review reminder, and a home page. Safe to re-run. Without Maestro (`--no-maestro`) it writes the capture lines and schedules to `MEMORY_MANUAL_STEPS.md` |
+| `test_install_memory.py` | 3 tests: fresh install verifies and keeps the user's instruction text; a re-run changes nothing; a tool the user edited is kept, the new copy lands as `.new` |
+
+### Measured
+
+The playbook rebuilt around it (3 documents, 4 tasks) installed and verified a fresh Claude Code agent in under 3
+minutes, all 12 checks passing, including the smoke test with real model calls.
+
+### Breaking
+
+None. Existing installs can re-run `install_memory.py all` with their original options; it keeps every existing
+config value, memory, index line and journal entry.
+
 ## 2026-11-10.9
 
 Seven fixes from an automated code review of the playbook that packages this spec. Two of them prevented data loss.
