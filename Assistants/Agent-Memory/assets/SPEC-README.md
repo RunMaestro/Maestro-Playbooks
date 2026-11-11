@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Implementation Guide
 
-Spec version: 2026-11-10.9
+Spec version: 2026-11-10.10
 
 A layered long-term memory for a Claude Code agent that lives in a markdown vault. It has seven layers, each
 with its own store and its own off switch. Every memory is a plain markdown file that a human can read and edit.
@@ -34,6 +34,8 @@ measured. This file is the build order.
 | `memory_promote.py` | L3 to L2 | Nightly promotion: replay a day, one extraction call, validate, write with sources, log |
 | `memory_lint.py` | L2 | Nightly, no model: dead paths and `verified:` stamps, decision `reopen_if` checks, index integrity, health page |
 | `memory_smoke.py` | L2 | Weekly fixed-question test: answers and refusals |
+| `install_memory.py` | all | One-command install: plan, apply, verify; safe to re-run |
+| `test_install_memory.py` | all | Installer tests: fresh, re-run, user-edited tool |
 | `protected_files.py` | jobs | Snapshot and restore of identity files around every background job |
 | `memory-config.example.json` | L2 jobs | Switches, owner and agent names, promotion mode and date, off-limits topics |
 | `smoke.example.json` | L2 | Smoke-test question format |
@@ -48,6 +50,18 @@ measured. This file is the build order.
 | Node 18+ and `npx` | L4 | For [qmd](https://github.com/tobi/qmd). Any local search with keyword + semantic modes and named collections works |
 | A scheduler | L4, L5 | cron, launchd, or Maestro Cue |
 | A markdown vault | all | Obsidian is optional. A git repo of `.md` files works |
+
+## One-Command Install
+
+`install_memory.py` does the whole build order below in one run, in a couple of minutes:
+
+```bash
+python3 install_memory.py plan --owner Alex --vault ~/Vault --out /tmp/mem   # read /tmp/mem/MEMORY_PLAN.md
+python3 install_memory.py all  --owner Alex --vault ~/Vault --out /tmp/mem   # plan, apply, verify
+```
+
+It detects the agent through `maestro-cli` (or runs with `--no-maestro`), is safe to re-run, and writes
+`MEMORY_VERIFY.md`. The steps below are what it does, for reading or for building by hand.
 
 ## Build Order
 

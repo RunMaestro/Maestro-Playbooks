@@ -57,17 +57,18 @@ whatever text you already had; the memory line is appended.
 
 ## Document chain
 
-| # | Document | Does |
-|---|---|---|
-| 1 | `1_DETECT` | Agent id and harness, current agent messages, toolchain, model CLI probe, qmd collections, Cue, vault survey |
-| 2 | `2_PLAN` | Slug and paths, layer table, both configs, instruction block, rules, seed memories, smoke questions, schedules |
-| 3 | `3_INSTALL` | Tools and tests, configs, store and seed, harness link, instructions and rules, first journal entry, qmd |
-| 4 | `4_WIRE` | Nudge and new-session message, Cue on, subscriptions, review reminder, a first run of each cheap job |
-| 5 | `5_VERIFY` | The spec's acceptance checks, layer by layer. Re-runnable on its own |
-| 6 | `6_SUMMARY` | The memory home page `Memory/Memory.md`, the setup summary, the next step |
+The install is one bundled script, `assets/install_memory.py`; the documents run it and check its output. A full
+install takes a few minutes (the qmd embedding model, on first use, downloads in the background).
 
-Working files land in the Auto Run folder: `MEMORY_DETECT.md`, `MEMORY_PLAN.md`, `MEMORY_INSTALL_LOG.md`,
-`MEMORY_WIRE_LOG.md`, `MEMORY_VERIFY.md`, `MEMORY_SETUP.md`.
+| Doc | Tasks | What happens |
+|---|---|---|
+| `1_PLAN` | 1 | `install_memory.py plan`: detects the agent, harness, toolchain, model CLI, qmd, Cue and any earlier install; writes `MEMORY_PLAN.md`. Changes nothing |
+| `2_INSTALL` | 2 | `install_memory.py apply`, then `verify` |
+| `3_SUMMARY` | 1 | `MEMORY_SETUP.md`: verdict, what was installed, the review date, the off switch, and the one owner step if any |
+
+The script is safe to re-run: it replaces only its own marked block and named entries, keeps the user's text in
+the instruction file and both agent messages, and never duplicates a schedule. It also runs without Maestro
+(`--no-maestro`), writing the capture lines and schedules to `MEMORY_MANUAL_STEPS.md` instead.
 
 ## Configuration
 

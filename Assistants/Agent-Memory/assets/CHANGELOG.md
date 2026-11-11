@@ -4,6 +4,28 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.10
+
+A one-command installer. The Auto Run playbook that installs this spec took about 55 minutes as 74 agent tasks,
+almost all of it per-task session overhead around mechanical steps. The mechanics are now one script.
+
+### New files
+
+| File | What it is |
+|---|---|
+| `install_memory.py` | `plan` (detect + plan, changes nothing), `apply`, `verify`, or `all`. Installs the tools and spec, the store with three short seed memories, both configs, the instruction block (between `agent-memory` markers) and rules files, the first journal entry, qmd collections (embedding model in the background), the agent's nudge and new-session message (memory lines added or replaced, the rest kept), Maestro Cue subscriptions and the review reminder, and a home page. Safe to re-run. Without Maestro (`--no-maestro`) it writes the capture lines and schedules to `MEMORY_MANUAL_STEPS.md` |
+| `test_install_memory.py` | 3 tests: fresh install verifies and keeps the user's instruction text; a re-run changes nothing; a tool the user edited is kept, the new copy lands as `.new` |
+
+### Measured
+
+The playbook rebuilt around it (3 documents, 4 tasks) installed and verified a fresh Claude Code agent in under 3
+minutes, all 12 checks passing, including the smoke test with real model calls.
+
+### Breaking
+
+None. Existing installs can re-run `install_memory.py all` with their original options; it keeps every existing
+config value, memory, index line and journal entry.
+
 ## 2026-11-10.9
 
 Seven fixes from an automated code review of the playbook that packages this spec. Two of them prevented data loss.
