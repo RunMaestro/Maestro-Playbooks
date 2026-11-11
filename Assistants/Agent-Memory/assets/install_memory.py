@@ -244,10 +244,10 @@ def plan(a) -> dict:
     if search_on:                          # a collection name in use must point at this vault's folder
         planned = {f"{slug}-journal": A / "Journal", f"{slug}-memory": A / "Memory", f"{slug}-tools": A / "Tools"}
         planned.update({f"{slug}-notes-{slugify(f)}": (vault / f).resolve() for f in folders})
-        for name, folder in planned.items():
-            m = re.search(r"^\s*Path:\s*(.+)$", sh(QMD + ["collection", "show", name], timeout=60).stdout, re.M)
+        for cname, folder in planned.items():
+            m = re.search(r"^\s*Path:\s*(.+)$", sh(QMD + ["collection", "show", cname], timeout=60).stdout, re.M)
             if m and Path(m.group(1).strip()).resolve() != folder.resolve():
-                blockers.append(f"qmd collection {name} already indexes {m.group(1).strip()}; pass a different --slug")
+                blockers.append(f"qmd collection {cname} already indexes {m.group(1).strip()}; pass a different --slug")
     apply_after = (dt.date.today() + dt.timedelta(days=a.review_days)).isoformat()
     if mode == "UPDATE":                      # an update keeps the installed gate date; apply keeps it anyway
         try:

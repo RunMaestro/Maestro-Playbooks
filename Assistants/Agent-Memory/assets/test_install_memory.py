@@ -29,6 +29,7 @@ def test_fresh_install_verifies_and_keeps_user_text():
         r = run(t)
         assert r.returncode == 0, r.stdout[-800:] + r.stderr[-400:]
         assert "Memory Verify: VERIFIED" in (t / "out" / "MEMORY_VERIFY.md").read_text()
+        assert json.loads((t / "out" / "MEMORY_PLAN.json").read_text())["agent"]["name"] == "Test Bot"
         claude = (t / "vault" / "CLAUDE.md").read_text()
         assert claude.startswith("# my own rules") and claude.count("agent-memory:begin") == 1
         cfg = json.loads((t / "vault" / "Agent" / "Memory" / "config.json").read_text())
@@ -121,6 +122,8 @@ def test_two_vaults_with_one_slug_do_not_share_a_collection():
             (t / "qmd.json").write_text(json.dumps({"bot-journal": str(t / "a" / "Agent" / "Journal")}))
             r = run(t, "--slug", "bot", "--search", "qmd", vault=t / "b", cmd="plan")
             assert r.returncode == 2 and "already indexes" in r.stdout, r.stdout[-400:]
+            plan = json.loads((t / "out" / "MEMORY_PLAN.json").read_text())
+            assert plan["agent"]["name"] == "Test Bot", plan["agent"]          # the collection loop must not rename it
         finally:
             os.environ.pop("AGENT_MEMORY_QMD", None)
             os.environ.pop("QMD_STUB_STATE", None)

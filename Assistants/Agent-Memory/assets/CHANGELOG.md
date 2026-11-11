@@ -4,6 +4,16 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-10.13
+
+| # | Change | Breaking? |
+|---|---|---|
+| R14 | `.12`'s collection check reused the variable that held the agent's name, so every `plan` with search on recorded a collection name as the agent name (it reached the config's `agent`, the home page and the seed memories). Renamed | No. Re-run `install_memory.py all` on a `.12` install to correct the name |
+
+`test_install_memory.py` now asserts the planned agent name in the fresh-install and two-vault tests.
+
+**Set `spec_version: "2026-11-10.13"`**; a successful `install_memory.py verify` sets it.
+
 ## 2026-11-10.12
 
 Two follow-ups from the same review.
