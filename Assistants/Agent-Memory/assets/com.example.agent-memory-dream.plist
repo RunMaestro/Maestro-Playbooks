@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  L5 nightly dream as a launchd agent (macOS). Survives reboot; runs a missed slot after wake.
+  Install:  cp com.example.agent-memory-dream.plist ~/Library/LaunchAgents/
+            launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.agent-memory-dream.plist
+  Test now: launchctl kickstart -k gui/$(id -u)/com.example.agent-memory-dream
+  Replace /Users/YOU, CWD-SLUG, HOUR and MINUTE, and the paths. The `claude` CLI must be on PATH for the EXTRACT and REFLECT phases.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.agent-memory-dream</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>python3 "$HOME/Vault/Agent/Tools/cc_sessions.py" --projects "$HOME/.claude/projects/CWD-SLUG" --out "$HOME/.agent-sessions" --days 2 &amp;&amp; python3 "$HOME/Vault/Agent/Tools/memory.py" dream</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MEMORY_DIR</key>
+    <string>/Users/YOU/.agent-memory</string>
+    <key>MEMORY_SESSIONS</key>
+    <string>/Users/YOU/.agent-sessions</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <!-- REPLACE HOUR and MINUTE (0-23, 0-59) with a slot after your last ingest. plutil -lint fails until you do. -->
+    <key>Hour</key>
+    <integer>HOUR</integer>
+    <key>Minute</key>
+    <integer>MINUTE</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/YOU/Library/Logs/agent-memory-dream.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOU/Library/Logs/agent-memory-dream.log</string>
+</dict>
+</plist>

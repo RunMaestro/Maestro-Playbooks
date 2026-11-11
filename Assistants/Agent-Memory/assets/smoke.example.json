@@ -1,0 +1,29 @@
+{
+  "_about": "expect = a memory slug that must be in the top 5 and must answer. abstain = the store must not answer.",
+  "questions": [
+    {
+      "q": "What accent color does Alex use by default?",
+      "expect": "user_accent_color"
+    },
+    {
+      "q": "Am I allowed to use tabs in code?",
+      "expect": "feedback_no_tabs"
+    },
+    {
+      "q": "Where do research reports go?",
+      "expect": "feedback_reports_folder"
+    },
+    {
+      "q": "What is Alex's blood type?",
+      "abstain": true
+    },
+    {
+      "q": "Which airline does Alex fly to Tokyo?",
+      "abstain": true
+    },
+    {
+      "q": "What is the name of Alex's boat?",
+      "abstain": true
+    }
+  ]
+}

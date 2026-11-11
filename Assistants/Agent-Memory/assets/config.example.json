@@ -1,0 +1,33 @@
+{
+ "spec_version": "2026-11-10.9",
+ "enabled": true,
+ "readonly": false,
+ "budget_calls": 14,
+ "owner": "Alex",
+ "people": [
+  "Sam",
+  "Jo"
+ ],
+ "assistant": "Helper",
+ "sensitive": "\\b(health|diagnos\\w*|money|salary|password|secret|address|divorce)\\b",
+ "roles": {
+  "User": "OWNER",
+  "Typed": "OWNER (typed)",
+  "Texted": "OWNER (text)",
+  "Phone": "OWNER (call)",
+  "Task": "TASK RESULT",
+  "Assistant": "ASSISTANT"
+ },
+ "phases": {
+  "replay": true,
+  "extract": true,
+  "consolidate": true,
+  "link": true,
+  "contradict": true,
+  "decay": true,
+  "reflect": true,
+  "compile": true
+ },
+ "model": "haiku",
+ "model_cmd": null
+}
