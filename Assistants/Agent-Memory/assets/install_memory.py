@@ -266,13 +266,13 @@ def plan(a) -> dict:
     mc.update({"spec_version": spec_version(), "owner": a.owner, "agent": name, "model_cmd": model_cmd,
                "store_dir": "Store", "slug": slug})
     mc["promote"].update({"enabled": bool(model_cmd), "mode": "dry-run", "apply_after": apply_after,
-                          "require_review": a.require_review == "yes",
+                          "require_review": (a.require_review or "no") == "yes",
                           "sources": ["journal", "timeline"] if cli else ["journal"],
                           "off_limits": a.off_limits if a.off_limits != "none" else "(?!x)x",
                           "off_limits_words": "the topics in promote.off_limits" if a.off_limits != "none"
                           else "no extra topics (credentials are always redacted)",
                           "journal_glob": "Journal/{date}.md", "maestro_cli": (cli or [None])[-1]})
-    if a.require_review == "yes":
+    if (a.require_review or "no") == "yes":
         mc["promote"]["reviewed"] = False
     mc["smoke"]["enabled"] = bool(model_cmd)
     rules_dir = vault / ".claude" / "rules"
@@ -363,7 +363,7 @@ def plan(a) -> dict:
         "cue_subscriptions": subs, "review_reminder": {"at": f"{apply_after} 09:00", "name": f"{slug}-memory-review"},
         "link_command": link, "blockers": blockers, "notes": notes,
         "options": {"nightly": a.nightly, "weekly": f"{weekday} {weekly}", "review_days": a.review_days,
-                    "require_review": a.require_review},
+                    "require_review": a.require_review},   # None = not given: an update keeps the saved value
     }
     return plan_
 
@@ -580,6 +580,13 @@ def apply(p: dict, out: Path) -> int:
             else:
                 old.setdefault(k, v)
         mc = old
+        # 2026-11-11.2: an explicit --require-review wins over the saved value on an update; without the flag
+        # the saved value stays. Before, the merge kept a saved `false` even when the user asked for review.
+        flag = (p.get("options") or {}).get("require_review")
+        if flag in ("yes", "no"):
+            mc["promote"]["require_review"] = flag == "yes"
+            if flag == "yes":
+                mc["promote"].setdefault("reviewed", False)
     cfgp.write_text(json.dumps(mc, indent=2) + "\n")
     if p["dream_config"]:
         P["DREAM_DIR"].mkdir(parents=True, exist_ok=True)
@@ -704,7 +711,7 @@ def apply(p: dict, out: Path) -> int:
         cue_write(p, P["VAULT"] / ".maestro" / "cue.yaml", tests_ok, log)
         rr = p["review_reminder"]
         sh([*cli, "cue", "schedule", "--cancel", rr["name"]])
-        if p["memory_config"]["promote"].get("require_review"):
+        if wants_review_reminder(mc):           # the config written to disk, not the plan's default
             msg = (f"Memory promotion review is due: read {p['paths']['MEMDIR']}/Promotions/, then set "
                    f"promote.reviewed to true in {p['paths']['MEMDIR']}/config.json.")
             r = sh([*cli, "cue", "schedule", "--at", rr["at"], "--agent", aid, "--notify", "--message", msg,
@@ -903,6 +910,11 @@ def verify(p: dict, out: Path, fast: bool) -> int:
 
 # ---------- main ----------
 
+def wants_review_reminder(mc: dict) -> bool:
+    """A review reminder exists only while the installed config requires review (2026-11-11.2)."""
+    return bool((mc.get("promote") or {}).get("require_review"))
+
+
 def yes_no(v: str) -> str:
     """The Exchange launch form writes booleans as true/false; the prompt default is yes/no."""
     v = str(v).strip().lower()
@@ -930,7 +942,7 @@ def main(argv=None) -> int:
     ap.add_argument("--nightly", default="02:30")
     ap.add_argument("--weekly", default="sun 10:00")
     ap.add_argument("--review-days", type=int, default=7)
-    ap.add_argument("--require-review", type=yes_no, default="no")      # spec 2026-11-11: off by default
+    ap.add_argument("--require-review", type=yes_no, default=None)      # not given = no on install, keep on update
     ap.add_argument("--off-limits", default="none")
     ap.add_argument("--dream", choices=["auto", "yes", "no"], default="auto")
     ap.add_argument("--search", choices=["qmd", "none"], default="qmd")

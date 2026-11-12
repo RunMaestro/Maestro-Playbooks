@@ -736,6 +736,81 @@ def test_2026_11_11_require_review_true_still_closes_the_gate():
         assert untouched(ms, calls)
 
 
+# ---------- spec 2026-11-11.1: spec drift check in memory_lint.py ----------
+
+def lint_run(tmp: Path, cfg_extra: dict, fetch) -> tuple[int, str, list]:
+    """Run memory_lint.main() in a temp vault with FETCH stubbed; return (exit, stdout, fetch calls)."""
+    import contextlib
+    import io
+    ms, mp, sm, calls = vault(tmp)
+    cfg = json.loads(ms.CONFIG.read_text())
+    lint = cfg.setdefault("lint", {"enabled": True})
+    lint.setdefault("enabled", True)
+    for k, v in cfg_extra.items():
+        if k == "lint":
+            lint.update(v)
+        else:
+            cfg[k] = v
+    ms.CONFIG.write_text(json.dumps(cfg))
+    import memory_lint
+    ml = importlib.reload(memory_lint)
+    seen = []
+    ml.FETCH = lambda gid: (seen.append(gid), fetch(gid))[1]
+    buf = io.StringIO()
+    sys.argv = ["memory_lint.py", "--no-write"]
+    with contextlib.redirect_stdout(buf):
+        rc = ml.main()
+    return rc, buf.getvalue(), seen
+
+
+def readme(v: str) -> str:
+    return f"# Agent Memory\n\nSpec version: {v}\n\nBody text.\n"
+
+
+def test_drift_found_warns_and_keeps_exit_0():
+    with tempfile.TemporaryDirectory() as t:
+        rc, out, seen = lint_run(Path(t), {"spec_version": "2026-11-10.6", "lint": {"spec_gist": "abc123"}},
+                                 lambda gid: readme("2026-11-11.1"))
+        assert rc == 0 and seen == ["abc123"]
+        assert "WARN spec drift: local 2026-11-10.6, live 2026-11-11.1" in out.splitlines()
+
+
+def test_no_drift_when_current_or_newer():
+    for local, live in (("2026-11-11.1", "2026-11-11.1"), ("2026-11-11.2", "2026-11-11.1"),
+                        ("2026-11-10.13", "2026-11-10.9")):
+        with tempfile.TemporaryDirectory() as t:
+            rc, out, _ = lint_run(Path(t), {"spec_version": local, "lint": {"spec_gist": "abc123"}},
+                                  lambda gid, live=live: readme(live))
+            assert rc == 0 and "WARN" not in out and "is current" in out, (local, live, out)
+
+
+def test_version_order_counts_a_suffix_after_the_bare_date():
+    import memory_lint as ml
+    assert ml.version_key("2026-11-11") < ml.version_key("2026-11-11.1") < ml.version_key("2026-11-11.2")
+    assert ml.version_key("2026-11-10.9") < ml.version_key("2026-11-10.13") < ml.version_key("2026-11-11")
+    assert ml.version_key("not a version") is None
+
+
+def test_fetch_failure_is_skipped_with_exit_0():
+    def boom(gid):
+        raise OSError("network unreachable")
+    with tempfile.TemporaryDirectory() as t:
+        rc, out, seen = lint_run(Path(t), {"spec_version": "2026-11-10.6", "lint": {"spec_gist": "abc123"}}, boom)
+        assert rc == 0 and seen == ["abc123"] and "WARN" not in out
+        assert "drift check skipped (OSError: network unreachable)" in out
+
+
+def test_drift_check_off_and_unconfigured_never_fetch():
+    with tempfile.TemporaryDirectory() as t:
+        rc, out, seen = lint_run(Path(t), {"spec_version": "2026-11-10.6",
+                                            "lint": {"spec_gist": "abc123", "drift_check": False}},
+                                 lambda gid: readme("2026-11-11.1"))
+        assert rc == 0 and seen == [] and "drift check off" in out and "WARN" not in out
+    with tempfile.TemporaryDirectory() as t:
+        rc, out, seen = lint_run(Path(t), {"spec_version": "2026-11-10.6"}, lambda gid: readme("2026-11-11.1"))
+        assert rc == 0 and seen == [] and "drift check skipped (no lint.spec_gist set)" in out
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

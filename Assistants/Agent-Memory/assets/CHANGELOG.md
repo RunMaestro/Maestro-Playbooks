@@ -4,6 +4,56 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-11.2
+
+Two installer fixes from an automated review of the playbook pull request for `2026-11-11`.
+
+### Changed
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| D8 | `install_memory.py` | `--require-review` now defaults to "not given". On a fresh install that means `no`. On an update, an explicit `--require-review yes` or `no` overrides the saved `promote.require_review` (and `yes` adds `reviewed: false` if missing); without the flag the saved value stays. Before, the update merge kept a saved `false` even when the user asked for review, so promotion could write with no sign-off | No. It only does what the flag already claimed |
+| D9 | `install_memory.py` | The review reminder follows the config written to disk (`wants_review_reminder()`), not the plan's default. Before, an update of an install with `require_review: true` cancelled its reminder and never scheduled a new one | No |
+
+### New tests
+
+`test_install_memory.py` grows from 8 to 9: an update with `--require-review yes` turns review on, a re-run
+without the flag keeps it, `--require-review no` turns it off, and the reminder decision follows the config on
+disk each time. Mutation checks: removing the explicit-flag override, or making the reminder ignore the config,
+fails the new test.
+
+### Breaking
+
+None. Copy `install_memory.py` and `test_install_memory.py`, then set `spec_version: "2026-11-11.2"` in both
+configs after `test_memory_jobs.py` (53), `test_memory.py` (12) and `test_install_memory.py` (9) pass.
+
+## 2026-11-11.1
+
+A drift warning, so an install learns that it is behind without anyone telling it. Two implementations of this spec
+fell several releases behind on 2026-11-10 and 2026-11-11 because nothing checked.
+
+### Changed
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| D6 | `memory_lint.py` | Nightly spec drift check. Reads the `Spec version:` line from the README of the gist named in `lint.spec_gist` (with `gh api` when `gh` is installed, else the public API) and prints `WARN spec drift: local X, live Y` when `spec_version` in `Memory/config.json` is older. The exit code never changes. A failed fetch, a missing `gh` with no network, or an unset `lint.spec_gist` logs `drift check skipped (...)`. The health page gains a "Spec version" row | No |
+| D7 | `memory-config.example.json` | `lint.drift_check: true` (set `false` to turn the check off) and `lint.spec_gist: null`. The gist id is not built into the code: these files are also published in places where the gist link must not appear | No |
+
+Versions compare by date, then suffix, with a bare date sorting before `.1`. So `2026-11-11` is older than
+`2026-11-11.1`, and `2026-11-10.9` is older than `2026-11-10.13`.
+
+### New tests
+
+`test_memory_jobs.py` grows from 48 to 53: drift found (one `WARN` line, exit 0), no drift (equal, newer, and
+`.13` against `.9`), version ordering, fetch failure (`skipped`, exit 0), and the off switch plus an unset gist
+(neither fetches). Mutation check: removing the comparison fails the drift-found test.
+
+### Breaking
+
+None. To use the check, set `"lint": {"spec_gist": "<the gist id you installed from>"}`. Then set
+`spec_version: "2026-11-11.1"` in both configs after `test_memory_jobs.py` (53), `test_memory.py` (12) and
+`test_install_memory.py` (8) pass.
+
 ## 2026-11-11
 
 No review is required by default. The owner of the reference install decided that no implementer needs a human

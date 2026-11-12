@@ -129,6 +129,29 @@ def test_two_vaults_with_one_slug_do_not_share_a_collection():
             os.environ.pop("AGENT_MEMORY_QMD", None)
             os.environ.pop("QMD_STUB_STATE", None)
 
+def test_update_applies_an_explicit_require_review_flag():
+    """2026-11-11.2: on a re-run, --require-review yes|no overrides the saved value; no flag keeps it."""
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        (t / "vault").mkdir()
+        assert run(t).returncode == 0
+        cfgp = t / "vault" / "Agent" / "Memory" / "config.json"
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is False
+        assert run(t, "--require-review", "yes").returncode == 0
+        pc = json.loads(cfgp.read_text())["promote"]
+        assert pc["require_review"] is True and pc["reviewed"] is False
+        assert run(t).returncode == 0                                    # no flag: the saved `true` stays
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is True
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("im", HERE / "install_memory.py")
+        im = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(im)
+        assert im.wants_review_reminder(json.loads(cfgp.read_text())) is True   # reminder follows the disk config
+        assert run(t, "--require-review", "no").returncode == 0
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is False
+        assert im.wants_review_reminder(json.loads(cfgp.read_text())) is False
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

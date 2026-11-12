@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Architecture
 
-Spec version: 2026-11-11
+Spec version: 2026-11-11.2
 
 A memory system for a long-lived Claude Code agent that works inside a markdown notes vault (Obsidian or any
 folder of `.md` files). It has seven layers. Each layer has one job, one store, and its own off switch.

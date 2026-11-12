@@ -1,5 +1,5 @@
 {
-  "spec_version": "2026-11-11",
+  "spec_version": "2026-11-11.2",
   "owner": "Alex",
   "agent": "Ada",
   "model_cmd": null,
@@ -27,7 +27,9 @@
   },
   "lint": {
     "enabled": true,
-    "verify_stamp_days": 30
+    "verify_stamp_days": 30,
+    "drift_check": true,
+    "spec_gist": null
   },
   "decisions": {
     "enabled": true
