@@ -33,7 +33,8 @@ def test_fresh_install_verifies_and_keeps_user_text():
         claude = (t / "vault" / "CLAUDE.md").read_text()
         assert claude.startswith("# my own rules") and claude.count("agent-memory:begin") == 1
         cfg = json.loads((t / "vault" / "Agent" / "Memory" / "config.json").read_text())
-        assert cfg["promote"]["mode"] == "dry-run" and cfg["promote"]["reviewed"] is False
+        assert cfg["promote"]["mode"] == "dry-run" and cfg["promote"]["require_review"] is False
+        assert "reviewed" not in cfg["promote"]                       # spec 2026-11-11: no review by default
         assert (t / "out" / "MEMORY_MANUAL_STEPS.md").exists()          # no Maestro: capture lines handed over
 
 
@@ -127,6 +128,32 @@ def test_two_vaults_with_one_slug_do_not_share_a_collection():
         finally:
             os.environ.pop("AGENT_MEMORY_QMD", None)
             os.environ.pop("QMD_STUB_STATE", None)
+
+def test_update_applies_an_explicit_require_review_flag():
+    """2026-11-11.2: on a re-run, --require-review yes|no overrides the saved value; no flag keeps it."""
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        (t / "vault").mkdir()
+        assert run(t).returncode == 0
+        cfgp = t / "vault" / "Agent" / "Memory" / "config.json"
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is False
+        assert run(t, "--require-review", "yes").returncode == 0
+        pc = json.loads(cfgp.read_text())["promote"]
+        assert pc["require_review"] is True and pc["reviewed"] is False
+        assert run(t, cmd="plan").returncode == 0                       # 2026-11-11.3: the plan says so too
+        plan = json.loads((t / "out" / "MEMORY_PLAN.json").read_text())
+        assert plan["memory_config"]["promote"]["require_review"] is True and plan["options"]["require_review"] is None
+        assert run(t).returncode == 0                                    # no flag: the saved `true` stays
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is True
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("im", HERE / "install_memory.py")
+        im = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(im)
+        assert im.wants_review_reminder(json.loads(cfgp.read_text())) is True   # reminder follows the disk config
+        assert run(t, "--require-review", "no").returncode == 0
+        assert json.loads(cfgp.read_text())["promote"]["require_review"] is False
+        assert im.wants_review_reminder(json.loads(cfgp.read_text())) is False
+
 
 if __name__ == "__main__":
     fails = 0

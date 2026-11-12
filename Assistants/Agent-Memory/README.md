@@ -43,9 +43,9 @@ whatever text you already had; the memory line is appended.
 
 ## Safety model
 
-- **Promotion starts in dry-run.** For `REVIEW_DAYS` it only writes proposals to `Memory/Promotions/`. With
-  `REQUIRE_REVIEW` on, it stays in dry-run until you read them and set `promote.reviewed: true`. A reminder fires
-  on the gate date.
+- **Promotion starts in dry-run.** For `REVIEW_DAYS` it only writes proposals to `Memory/Promotions/`, then it
+  starts to write. No review is required by default. With `REQUIRE_REVIEW` set to `yes`, it stays in dry-run
+  until you read the proposals and set `promote.reviewed: true`, and a reminder fires on the gate date.
 - **Background jobs cannot rewrite the agent.** Every job runs through `run_guarded.py`, which reverts any change
   to `CLAUDE.md`, `AGENTS.md` and the rules files and keeps the job's version as `.rejected`.
 - **Nothing is overwritten.** Instruction files get a marked block; the Cue file is appended to; an edited tool
@@ -82,7 +82,7 @@ the instruction file and both agent messages, and never duplicates a schedule. I
 | `NIGHTLY_TIME` | `03:15` | Dream; promotion and lint 30 min later |
 | `WEEKLY_SLOT` | `sun 09:45` | Smoke test and instructions audit |
 | `REVIEW_DAYS` | `7` | Days of dry-run before promotion may write |
-| `REQUIRE_REVIEW` | `yes` | Stay in dry-run until you mark the proposals reviewed |
+| `REQUIRE_REVIEW` | `no` | `yes`: stay in dry-run until you mark the proposals reviewed |
 | `OFF_LIMITS` | `none` | Regex of topics never promoted |
 | `ENABLE_DREAM` | `auto` | L5 on for Claude Code, off elsewhere |
 | `SEARCH` | `qmd` | `qmd` or `none` |

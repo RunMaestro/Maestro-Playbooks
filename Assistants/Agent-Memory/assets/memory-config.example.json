@@ -1,5 +1,5 @@
 {
-  "spec_version": "2026-11-10.13",
+  "spec_version": "2026-11-11.3",
   "owner": "Alex",
   "agent": "Ada",
   "model_cmd": null,
@@ -10,8 +10,7 @@
     "enabled": true,
     "mode": "dry-run",
     "apply_after": "2026-12-01",
-    "require_review": true,
-    "reviewed": false,
+    "require_review": false,
     "sources": [
       "journal",
       "timeline",
@@ -28,7 +27,9 @@
   },
   "lint": {
     "enabled": true,
-    "verify_stamp_days": 30
+    "verify_stamp_days": 30,
+    "drift_check": true,
+    "spec_gist": null
   },
   "decisions": {
     "enabled": true

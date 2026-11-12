@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Implementation Guide
 
-Spec version: 2026-11-10.13
+Spec version: 2026-11-11.3
 
 A layered long-term memory for a Claude Code agent that lives in a markdown vault. It has seven layers, each
 with its own store and its own off switch. Every memory is a plain markdown file that a human can read and edit.
@@ -22,8 +22,8 @@ measured. This file is the build order.
 | `link_store.py` | L2 | Points every Claude config dir's memory path at one store in the vault |
 | `qmd-update.sh` | L4 | Collection setup and the 2-hourly re-index |
 | `memory.py` | L5 | The dream: store, decay, tiers, 8-phase nightly consolidation, recall, switches |
-| `test_memory.py` | L5 | 11 tests; temp store, model stubbed (one runs a stub `model_cmd`) |
-| `test_memory_jobs.py` | L2 jobs | 37 tests for promotion and smoke: review gate, shard and pointer, shard path, source quotes, verdict parsing, Maestro CLI resolution and failures, redaction, one test per credential pattern, journal glob, `model_cmd`, `store_dir`; temp vaults, stub commands, synthetic credentials only |
+| `test_memory.py` | L5 | 12 tests; temp store, model stubbed (one runs a stub `model_cmd`) |
+| `test_memory_jobs.py` | L2 jobs | 53 tests for promotion and smoke: review gate, shard and pointer, shard path, source quotes, verdict parsing, Maestro CLI resolution and failures, redaction, one test per credential pattern, journal glob, `model_cmd`, `store_dir`; temp vaults, stub commands, synthetic credentials only |
 | `memory-record.schema.json` | L5 | Front-matter schema for a memory record |
 | `config.example.json` | L5 | Switches, owner and people names, sensitive-topic filter, transcript roles |
 | `cc_sessions.py` | L3 to L5 | Converts Claude Code JSONL transcripts into the session folders the dream replays |
@@ -32,10 +32,10 @@ measured. This file is the build order.
 | `com.example.agent-memory-dream.plist` | scheduling | launchd agent for the nightly dream |
 | `memstore.py` | L1, L2 | Shared store access: lenient front-matter parse, metadata edits, index pointers, lexical recall, switches, model call |
 | `memory_promote.py` | L3 to L2 | Nightly promotion: replay a day, one extraction call, validate, write with sources, log |
-| `memory_lint.py` | L2 | Nightly, no model: dead paths and `verified:` stamps, decision `reopen_if` checks, index integrity, health page |
+| `memory_lint.py` | L2 | Nightly, no model: dead paths and `verified:` stamps, decision `reopen_if` checks, index integrity, spec drift warning, health page |
 | `memory_smoke.py` | L2 | Weekly fixed-question test: answers and refusals |
 | `install_memory.py` | all | One-command install: plan, apply, verify; safe to re-run |
-| `test_install_memory.py` | all | Installer tests: fresh, re-run, edited tool and rules, paths outside the vault, quoting |
+| `test_install_memory.py` | all | 9 installer tests: fresh, re-run, edited tool and rules, paths outside the vault, quoting |
 | `run_guarded.py` | jobs | Runs one scheduled job inside the protected-files guard |
 | `protected_files.py` | jobs | Snapshot and restore of identity files around every background job |
 | `memory-config.example.json` | L2 jobs | Switches, owner and agent names, promotion mode and date, off-limits topics |
@@ -180,11 +180,13 @@ folder, default `Store/index_promoted.md`) and point at it from `MEMORY.md`, for
 before the model call: it writes nothing (no memory, no index line, no Promotions log), does not mark the day done,
 prints the reason and exits 2.
 
-**The review gate.** Promotion writes only when the gate is open: today is on or after `promote.apply_after`, AND
-`promote.reviewed` is `true` (unless you set `promote.require_review: false`). Until then the nightly run stays in
-dry-run. Read the proposals in `Memory/Promotions/` each morning; when they are right, set `promote.reviewed: true`.
-An explicit apply (`--apply`, or `promote.mode: apply`) with the gate closed is refused with exit 3 and writes
-nothing. `--override-gate` exists for a one-off run by hand; never put it in a schedule.
+**The gate.** Promotion stays in dry-run until `promote.apply_after`, then writes on its own. That dry-run window
+is the safety period: read the proposals in `Memory/Promotions/` while it runs, and move `apply_after` later if
+they are wrong. **No review is required by default** (since `2026-11-11`): a missing `promote.require_review` means
+`false`. To require a sign-off as well, set `promote.require_review: true`; promotion then also waits for
+`promote.reviewed: true`. With the gate closed (before `apply_after`, or with review on and not yet given), an
+explicit apply (`--apply`, or `promote.mode: apply`) is refused with exit 3 and writes nothing. `--override-gate`
+exists for a one-off run by hand; never put it in a schedule.
 
 **Quotes are checked.** Each proposal's `quote` must appear in that day's captured sources (lowercase, punctuation
 ignored, at least 3 words or a whole line). Anything else is dropped and counted as `unquoted` on the log's first
@@ -203,7 +205,14 @@ Schedule `memory_promote.py; memory_lint.py` nightly after your last ingest, and
 2. A decision record with `reopen_if: "after:<yesterday>"` gets `reopen_fired` on the next lint, and only once.
 3. The smoke test passes, including at least 3 refusals.
 4. `AGENT_MEMORY=0 python3 memory_lint.py` prints `skipped`.
-5. `python3 test_memory_jobs.py` prints `all passed` (37 tests).
+
+**Staying current (spec drift).** Set `lint.spec_gist` in `Memory/config.json` to the id of the gist you installed
+from. Each night `memory_lint.py` reads the `Spec version:` line from that gist's README and prints
+`WARN spec drift: local X, live Y` when your `spec_version` is older. It never changes the exit code. With no network,
+no `gh`, or no `lint.spec_gist`, it logs `drift check skipped (...)`. `lint.drift_check: false` turns it off; it is on
+by default. The id is not built in, because these files are also published in places where the gist link must not
+appear. Versions compare by date, then suffix; a bare date sorts before `.1`.
+5. `python3 test_memory_jobs.py` prints `all passed` (53 tests).
 6. With the gate closed, `python3 memory_promote.py --apply; echo $?` prints `3` and `Memory/Promotions/` gains no
    file.
 

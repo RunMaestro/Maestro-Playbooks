@@ -12,6 +12,12 @@ Checks :
                  and raised as one Maestro toast. `manual:` never fires by itself.
   index          unindexed memories, pointers to missing files, core index size.
   coverage       counts by type, `said_by`, `sources`, decision records.
+  spec drift     (spec 2026-11-11.1) reads the live `Spec version:` line from the README of
+                 the gist named in `lint.spec_gist` and prints one
+                 `WARN spec drift: local X, live Y` line when the config's `spec_version` is
+                 older. Never changes the exit code; an unreachable network, a missing `gh`
+                 or an unset `lint.spec_gist` logs `drift check skipped (...)`.
+                 `lint.drift_check: false` turns it off (default on).
 
 Writes `Agent/Memory/🎛️ Memory Health.md` (overwritten each run) and prints a
 one-line summary. Exit 0 always unless --strict (exit 1 on any dead reference,
@@ -28,8 +34,10 @@ import argparse
 import datetime as dt
 import json
 import re
+import shutil
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -124,6 +132,56 @@ def toast(title: str, msg: str) -> None:
         pass
 
 
+# ---------- spec drift (2026-11-11.1) ----------
+
+SPEC_LINE = re.compile(r"^Spec version: (\S+?)\.?\s*$", re.M)
+
+
+def version_key(v) -> tuple | None:
+    """`YYYY-MM-DD` or `YYYY-MM-DD.N` -> (date, N); no suffix counts as 0, so every suffix sorts after it."""
+    m = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?:\.(\d+))?", str(v or "").strip())
+    return (m.group(1), int(m.group(2) or 0)) if m else None
+
+
+def fetch_readme(gist_id: str, timeout: int = 20) -> str:
+    """The README of the gist's latest revision: `gh api` when gh is installed, else the public API."""
+    gh = shutil.which("gh")
+    if gh:
+        r = subprocess.run([gh, "api", f"gists/{gist_id}", "--jq", '.files["README.md"].content'],
+                           capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0 or not r.stdout.strip():
+            first = next((ln.strip() for ln in (r.stderr or "").splitlines() if ln.strip()), "no output")
+            raise RuntimeError(f"gh exit {r.returncode}: {first[:120]}")
+        return r.stdout
+    with urllib.request.urlopen(f"https://api.github.com/gists/{gist_id}", timeout=timeout) as resp:
+        return json.loads(resp.read().decode())["files"]["README.md"]["content"]
+
+
+FETCH = fetch_readme                        # tests replace this
+
+
+def drift_check(cfg: dict) -> str:
+    """One line for the log. Never raises: any failure is `drift check skipped (...)`."""
+    lc = cfg.get("lint") or {}
+    if lc.get("drift_check", True) is False:
+        return "drift check off (lint.drift_check: false)"
+    gid = str(lc.get("spec_gist") or "").strip()
+    if not gid:
+        return "drift check skipped (no lint.spec_gist set)"
+    try:
+        m = SPEC_LINE.search(FETCH(gid))
+    except Exception as e:
+        return f"drift check skipped ({type(e).__name__}: {str(e)[:120]})"
+    live = m.group(1) if m else ""
+    local = str(cfg.get("spec_version") or "")
+    lk, vk = version_key(local), version_key(live)
+    if vk is None:
+        return f"drift check skipped (no readable Spec version line in the live README: {live!r})"
+    if lk is None or lk < vk:
+        return f"WARN spec drift: local {local or 'unset'}, live {live}"
+    return f"spec {local} is current (live {live})"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-write", action="store_true")
@@ -209,6 +267,8 @@ def main() -> int:
     if core_bytes < 0:
         summary = f"MISSING core index {ms.CORE_INDEX}; " + summary
     print(f"memory_lint: {summary}")
+    drift = drift_check(cfg)
+    print(drift if drift.startswith("WARN") else f"memory_lint: {drift}")
 
     if write:
         L = [f"Summary:: {summary}", "",
@@ -224,7 +284,8 @@ def main() -> int:
              f"| `verified:` stamped | {verified} (paths in {len(mems) - no_refs} memories checked) |",
              f"| Decision records | {len(decisions)} ({len(waiting)} waiting, {len(manual)} manual) |",
              f"| Last promotion log | {last_promo} |",
-             f"| Smoke test | {smoke_line} |", ""]
+             f"| Smoke test | {smoke_line} |",
+             f"| Spec version | {cfg.get('spec_version') or 'unset'}: {drift} |", ""]
         if fired_now:
             L += ["## Reopened Decisions", ""] + [f"- [[{m.slug}]] `{c}` fired {today}" for m, c in fired_now] + [""]
         if dead_refs:
