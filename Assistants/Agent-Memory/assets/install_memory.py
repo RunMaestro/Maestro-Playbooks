@@ -249,11 +249,17 @@ def plan(a) -> dict:
             if m and Path(m.group(1).strip()).resolve() != folder.resolve():
                 blockers.append(f"qmd collection {cname} already indexes {m.group(1).strip()}; pass a different --slug")
     apply_after = (dt.date.today() + dt.timedelta(days=a.review_days)).isoformat()
+    saved_review = None
     if mode == "UPDATE":                      # an update keeps the installed gate date; apply keeps it anyway
         try:
             apply_after = json.loads(cfg_path.read_text())["promote"]["apply_after"] or apply_after
         except Exception:
             pass
+        try:                                  # 2026-11-11.3: the plan shows the saved review setting too
+            saved_review = json.loads(cfg_path.read_text())["promote"].get("require_review")
+        except Exception:
+            pass
+    review_on = (a.require_review == "yes") if a.require_review in ("yes", "no") else bool(saved_review)
     claude_env = ((agent or {}).get("customEnvVars") or {}).get("CLAUDE_CONFIG_DIR") or next(
         (e.get("value") for e in (agent or {}).get("effectiveEnv") or [] if e.get("key") == "CLAUDE_CONFIG_DIR"), None)
     claude_cfg = Path(claude_env or os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
@@ -266,13 +272,13 @@ def plan(a) -> dict:
     mc.update({"spec_version": spec_version(), "owner": a.owner, "agent": name, "model_cmd": model_cmd,
                "store_dir": "Store", "slug": slug})
     mc["promote"].update({"enabled": bool(model_cmd), "mode": "dry-run", "apply_after": apply_after,
-                          "require_review": (a.require_review or "no") == "yes",
+                          "require_review": review_on,
                           "sources": ["journal", "timeline"] if cli else ["journal"],
                           "off_limits": a.off_limits if a.off_limits != "none" else "(?!x)x",
                           "off_limits_words": "the topics in promote.off_limits" if a.off_limits != "none"
                           else "no extra topics (credentials are always redacted)",
                           "journal_glob": "Journal/{date}.md", "maestro_cli": (cli or [None])[-1]})
-    if (a.require_review or "no") == "yes":
+    if review_on:
         mc["promote"]["reviewed"] = False
     mc["smoke"]["enabled"] = bool(model_cmd)
     rules_dir = vault / ".claude" / "rules"

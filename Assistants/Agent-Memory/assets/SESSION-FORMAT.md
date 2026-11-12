@@ -1,6 +1,6 @@
 # Session Format: the Adapter Contract for L5
 
-Spec version: 2026-11-11.2
+Spec version: 2026-11-11.3
 
 `memory.py dream` reads conversations in one plain-text format. It does not know which harness produced them.
 `cc_sessions.py` converts Claude Code transcripts. For any other harness (Codex, an orchestrator's turn history,

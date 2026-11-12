@@ -4,6 +4,18 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-11.3
+
+One installer fix from the re-review of the same pull request.
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| D10 | `install_memory.py` | An update plan with no `--require-review` flag shows the saved `promote.require_review` in `MEMORY_PLAN.json` and in the plan summary ("and owner review"). Before, it showed `false` while `apply` kept a saved `true`, so the plan described automatic promotion that would not happen. `options.require_review` stays `None` when the flag is omitted | No |
+
+`test_install_memory.py` stays at 9 tests; the update test now also checks the plan. Mutation check: ignoring the
+saved value fails it. Copy `install_memory.py` and `test_install_memory.py`; set `spec_version: "2026-11-11.3"`
+after `test_memory_jobs.py` (53), `test_memory.py` (12) and `test_install_memory.py` (9) pass.
+
 ## 2026-11-11.2
 
 Two installer fixes from an automated review of the playbook pull request for `2026-11-11`.

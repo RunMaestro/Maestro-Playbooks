@@ -140,6 +140,9 @@ def test_update_applies_an_explicit_require_review_flag():
         assert run(t, "--require-review", "yes").returncode == 0
         pc = json.loads(cfgp.read_text())["promote"]
         assert pc["require_review"] is True and pc["reviewed"] is False
+        assert run(t, cmd="plan").returncode == 0                       # 2026-11-11.3: the plan says so too
+        plan = json.loads((t / "out" / "MEMORY_PLAN.json").read_text())
+        assert plan["memory_config"]["promote"]["require_review"] is True and plan["options"]["require_review"] is None
         assert run(t).returncode == 0                                    # no flag: the saved `true` stays
         assert json.loads(cfgp.read_text())["promote"]["require_review"] is True
         import importlib.util
