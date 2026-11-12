@@ -117,7 +117,7 @@ def test_g7_apply_before_gate_date_is_refused():
 
 def test_g7_apply_without_reviewed_is_refused():
     with tempfile.TemporaryDirectory() as t:
-        ms, mp, _, calls = vault(Path(t), {"reviewed": False})
+        ms, mp, _, calls = vault(Path(t), {"require_review": True, "reviewed": False})
         assert mp.main(["--date", DAY, "--apply"]) == 3
         assert untouched(ms, calls)
 
@@ -131,7 +131,7 @@ def test_g7_config_mode_apply_obeys_the_gate():
 
 def test_g7_closed_gate_keeps_the_default_run_in_dry_run():
     with tempfile.TemporaryDirectory() as t:
-        ms, mp, _, calls = vault(Path(t), {"reviewed": False})
+        ms, mp, _, calls = vault(Path(t), {"require_review": True, "reviewed": False})
         assert mp.main(["--date", DAY]) == 0
         assert not store_files(ms) and (ms.PROMOTIONS / f"{DAY}.md").read_text().startswith("Summary:: dry-run")
 
@@ -639,13 +639,13 @@ def test_g23_smoke_judge_sees_text_past_1200_chars():
     with tempfile.TemporaryDirectory() as t:
         ms, mp, sm, _ = vault(Path(t))
         ms.write_new("reference_jobs", "Jobs", "When the nightly memory jobs run", "reference",
-                     ("Background detail. " * 90) + "The nightly jobs run at 03:15.", {"said_by": "owner"})
+                     ("Background detail. " * 90) + "The nightly jobs run at 02:30.", {"said_by": "owner"})
         (ms.MEMDIR / "smoke.json").write_text(json.dumps({"questions": [
             {"q": "When do the nightly memory jobs run?", "expect": "reference_jobs"},
             {"q": "What is Alex's blood type?", "abstain": True},
             {"q": "Which airline does Alex fly?", "abstain": True},
             {"q": "What is the name of Alex's boat?", "abstain": True}]}))
-        sm.judge = lambda q, ctx: (0.9 if "03:15" in ctx else 0.1) if "nightly" in q else 0.1
+        sm.judge = lambda q, ctx: (0.9 if "02:30" in ctx else 0.1) if "nightly" in q else 0.1
         sys.argv = ["memory_smoke.py"]
         assert sm.main() == 0, json.loads((ms.STATE / "smoke.json").read_text())["rows"]
 
@@ -707,6 +707,34 @@ def test_g28_index_check_follows_an_external_promoted_shard():
         rep = mic.check(ms.STORE.resolve(), 24_400, 0)
         kinds = [(f["kind"], f["detail"]) for f in rep["fails"]]
         assert not kinds, kinds
+
+# ---------- spec 2026-11-11: review is off unless require_review is true ----------
+
+def test_2026_11_11_missing_require_review_leaves_gate_open_after_apply_after():
+    with tempfile.TemporaryDirectory() as t:
+        ms, mp, _, calls = vault(Path(t))
+        cfg = json.loads(ms.CONFIG.read_text())
+        for k in ("require_review", "reviewed"):
+            cfg["promote"].pop(k, None)                       # an adopter who never set either key
+        ms.CONFIG.write_text(json.dumps(cfg))
+        assert mp.review_gate(cfg["promote"]) == (True, "")
+        assert mp.review_gate({**cfg["promote"], "apply_after": FUTURE})[0] is False   # dry-run window still holds
+        assert mp.main(["--date", DAY]) == 0                  # nightly run, no flags: gate open, so it applies
+        assert store_files(ms) == ["feedback_lint_before_commit.md"]
+
+
+def test_2026_11_11_require_review_true_still_closes_the_gate():
+    with tempfile.TemporaryDirectory() as t:
+        ms, mp, _, calls = vault(Path(t), {"require_review": True})
+        cfg = json.loads(ms.CONFIG.read_text())
+        cfg["promote"].pop("reviewed", None)
+        ms.CONFIG.write_text(json.dumps(cfg))
+        is_open, why = mp.review_gate(cfg["promote"])
+        assert not is_open and "reviewed" in why
+        assert mp.review_gate({**cfg["promote"], "reviewed": True}) == (True, "")
+        assert mp.main(["--date", DAY, "--apply"]) == 3
+        assert untouched(ms, calls)
+
 
 if __name__ == "__main__":
     fails = 0

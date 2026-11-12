@@ -58,9 +58,9 @@ schedules that run them, and the agent settings that make the agent use them.
      store. -->
 **REVIEW_DAYS:** `7`
 
-<!-- CONFIGURE: `yes` keeps promotion in dry-run after REVIEW_DAYS until you read the proposals and set
-     promote.reviewed to true. `no` lets it start writing on its own when REVIEW_DAYS have passed. -->
-**REQUIRE_REVIEW:** `yes`
+<!-- CONFIGURE: `no` (the default) lets promotion start writing on its own when REVIEW_DAYS have passed. `yes`
+     keeps it in dry-run after REVIEW_DAYS until you read the proposals and set promote.reviewed to true. -->
+**REQUIRE_REVIEW:** `no`
 
 <!-- CONFIGURE: A regular expression of topics that must never be promoted into memory (matching lines are
      redacted before the model call). `none` for no extra topics. Credentials are always redacted. -->

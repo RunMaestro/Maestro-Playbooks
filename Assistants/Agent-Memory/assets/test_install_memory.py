@@ -33,7 +33,8 @@ def test_fresh_install_verifies_and_keeps_user_text():
         claude = (t / "vault" / "CLAUDE.md").read_text()
         assert claude.startswith("# my own rules") and claude.count("agent-memory:begin") == 1
         cfg = json.loads((t / "vault" / "Agent" / "Memory" / "config.json").read_text())
-        assert cfg["promote"]["mode"] == "dry-run" and cfg["promote"]["reviewed"] is False
+        assert cfg["promote"]["mode"] == "dry-run" and cfg["promote"]["require_review"] is False
+        assert "reviewed" not in cfg["promote"]                       # spec 2026-11-11: no review by default
         assert (t / "out" / "MEMORY_MANUAL_STEPS.md").exists()          # no Maestro: capture lines handed over
 
 

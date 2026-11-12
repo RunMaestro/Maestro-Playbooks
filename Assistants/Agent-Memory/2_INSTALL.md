@@ -14,8 +14,8 @@
 
 - [ ] **Install.** Apply the plan. This copies the tools, writes the store, configs, instruction block and rules,
       starts the journal, adds the qmd collections (the embedding model downloads in the background), sets the
-      nudge and new-session message (the agent's own text is kept), writes the Cue schedules and the review
-      reminder, and runs the first lint. Re-running it is safe.
+      nudge and new-session message (the agent's own text is kept), writes the Cue schedules and (with
+      `REQUIRE_REVIEW` on) the review reminder, and runs the first lint. Re-running it is safe.
 
       ```bash
       INSTALLER="$(find "{{AUTORUN_FOLDER}}" -maxdepth 3 -path '*/assets/install_memory.py' | head -1)"

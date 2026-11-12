@@ -4,6 +4,42 @@ Spec versions are release dates, `YYYY-MM-DD`. A second release on the same day 
 Newest first. Each version lists what changed, the new files, and the **breaking** changes an existing install
 must apply. Find the version you run in `spec_version` in your configs (see `README.md`, Upgrading).
 
+## 2026-11-11
+
+No review is required by default. The owner of the reference install decided that no implementer needs a human
+sign-off before promotion writes; the dry-run window before `promote.apply_after` is the safety period, and a later
+spot check of what was written replaces the sign-off.
+
+Label note: `.10` to `.13` were published on 2026-11-11 under `2026-11-10.x` labels, which broke this file's own
+rule (a new date starts with no suffix). They keep their labels; this release returns to the rule.
+
+### Changed
+
+| # | File | Change | Breaking? |
+|---|---|---|---|
+| D1 | `memory_promote.py` | `review_gate()`: a missing `promote.require_review` now means **no review**. Only a truthy `require_review` makes the gate also wait for `promote.reviewed: true`. Before, a missing key meant review required | **Yes.** An adopter who left `require_review` out starts writing once `apply_after` has passed |
+| D2 | `memory-config.example.json` | `"require_review": false`, and `reviewed` removed. `apply_after` and `mode: dry-run` unchanged | **Yes, for new installs:** they no longer wait for a sign-off |
+| D3 | `install_memory.py` | `--require-review` defaults to `no`. `promote.reviewed` is written only when review is on, and the "review due" reminder is scheduled only when review is on (an existing one is cancelled either way) | **Yes, for re-runs that relied on the old default:** pass `--require-review yes` to keep a sign-off |
+| D5 | `install_memory.py` | Default schedule times are now `--nightly 02:30` and `--weekly "sun 10:00"`. The old defaults were the reference install's own job times, which the `2026-11-10.2` scrub (G3) had already removed from the examples | No. A re-run without `--nightly`/`--weekly` moves the jobs to the new defaults; pass your times to keep them |
+| D4 | `README.md`, `ARCHITECTURE.md` | The gate paragraph describes the new default. The exit-3 refusal and `--override-gate` rules are unchanged for anyone who turns review on. Test counts in the README corrected (they still said 37 and 11) | No (docs) |
+
+### New tests
+
+`test_memory_jobs.py` grows from 46 to 48: a missing `require_review` leaves the gate open after `apply_after`
+(and closed before it), and `require_review: true` still closes it until `reviewed: true`. Two older G7 tests now
+set `require_review: true` explicitly, since they test the review path. `test_install_memory.py` (8) asserts a
+fresh install has `require_review: false` and no `reviewed` key. Mutation checks: putting back the old gate
+default fails the missing-key test; putting back the installer's `yes` default fails the fresh-install test.
+
+### Breaking
+
+1. **Decide your gate before the next nightly run.** If you relied on the old default to keep promotion waiting,
+   set `"require_review": true` (and keep `"reviewed": false`) in `Memory/config.json`. Otherwise do nothing:
+   once `apply_after` has passed, promotion writes.
+2. **If you re-run the installer** and want a sign-off, pass `--require-review yes`.
+3. **Set `spec_version: "2026-11-11"`** in both configs after `test_memory_jobs.py` (48), `test_memory.py` (12)
+   and `test_install_memory.py` (8) pass.
+
 ## 2026-11-10.13
 
 | # | Change | Breaking? |

@@ -1,6 +1,6 @@
 # Multi-Layer Agent Memory: Architecture
 
-Spec version: 2026-11-10.13
+Spec version: 2026-11-11
 
 A memory system for a long-lived Claude Code agent that works inside a markdown notes vault (Obsidian or any
 folder of `.md` files). It has seven layers. Each layer has one job, one store, and its own off switch.
@@ -160,9 +160,9 @@ not a promotion job. The fix is **`memory_promote.py`**, run by the scheduler, n
    deleted or rewritten.
 5. **Log** every proposal and result to `Memory/Promotions/<day>.md`, in both modes.
 
-It runs in dry-run (proposals to the log, store untouched) until a review gate opens: a date in config has passed
-AND the operator has marked the dry-run proposals reviewed (`promote.reviewed: true`, unless
-`promote.require_review: false`). Every path to apply obeys the gate; an explicit apply against a closed gate
+It runs in dry-run (proposals to the log, store untouched) until a date in config (`promote.apply_after`) has
+passed; that window is the safety period. Review is off by default; with `promote.require_review: true` the gate
+also waits for `promote.reviewed: true`. Every path to apply obeys the gate; an explicit apply against a closed gate
 exits 3. Apply also needs the promoted shard and a `MEMORY.md` pointer to it, or it exits 2 having written
 nothing. Before the model call every source is redacted: off-limits lines and credential lines are replaced by
 markers, so they never leave the machine. A source that cannot be read at all (no Maestro CLI, a failed
@@ -353,8 +353,9 @@ flowchart LR
 - L5 (the dream) runs over its own store. The promotion job covers the main L2 store instead, with no decay: the
   byte budget, enforced by the index check and the weekly audit, is the only pressure on L2 today.
 - `MEMORY.md` is still maintained by the agent and the audit, not compiled from a policy.
-- Promotions after the gate are reviewed by a weekly model audit, not by a human. The human review happens once,
-  at the gate: someone reads the dry-run proposals and sets `promote.reviewed: true`.
+- Promotions after the gate are reviewed by a weekly model audit, not by a human. No human sign-off is required
+  by default; the dry-run window before `apply_after` is the chance to read proposals, and a later spot check of
+  what was written replaces the sign-off. `promote.require_review: true` restores a sign-off at the gate.
 - `said_by` exists only where it could be backfilled from a direct quote, and on everything promoted since.
 - The harness writes loose YAML (unquoted colons in descriptions). Strict parsers silently skip those files: we
   found 5 of 230 memories invisible to every tool. `memstore.py` parses leniently, the way the harness does.

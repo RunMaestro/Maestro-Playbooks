@@ -27,8 +27,10 @@ MODES
   dry-run: proposals go to the log only. The default.
   apply: writes. Every way of asking for it (config `promote.mode: apply`, `--apply`, or
   the automatic switch from dry-run) must pass the REVIEW GATE first:
-    - `promote.apply_after` is set and today is on or after it, AND
-    - `promote.reviewed: true`, unless `promote.require_review: false`.
+    - `promote.apply_after` is set and today is on or after it (the dry-run window is the
+      safety period), AND
+    - only if `promote.require_review: true`: `promote.reviewed: true`. Review is off when
+      the key is missing (spec 2026-11-11).
   The automatic switch happens only when the gate passes. An explicit apply that fails
   the gate is refused. `--override-gate` skips the gate; schedulers must never pass it.
   `--dry-run` always wins. `readonly: true` in config forces dry-run.
@@ -467,13 +469,14 @@ def save_state(st: dict) -> None:
 
 
 def review_gate(pc: dict) -> tuple[bool, str]:
-    """(open, why closed). Open = apply_after reached AND (reviewed, or require_review is false)."""
+    """(open, why closed). Open = apply_after reached AND (require_review is not true, or reviewed).
+    A missing `require_review` means no review (spec 2026-11-11); before that it meant review required."""
     after = str(pc.get("apply_after") or "")
     if not after:
         return False, "promote.apply_after is not set"
     if ms.today() < after:
         return False, f"the dry-run review period runs until {after}"
-    if pc.get("require_review", True) and pc.get("reviewed") is not True:
+    if pc.get("require_review") and pc.get("reviewed") is not True:
         return False, "promote.reviewed is not true (set it after reading the dry-run proposals)"
     return True, ""
 

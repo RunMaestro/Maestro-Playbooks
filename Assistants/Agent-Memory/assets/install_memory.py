@@ -258,19 +258,22 @@ def plan(a) -> dict:
         (e.get("value") for e in (agent or {}).get("effectiveEnv") or [] if e.get("key") == "CLAUDE_CONFIG_DIR"), None)
     claude_cfg = Path(claude_env or os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
     projects = claude_cfg / "projects" / harness_slug(vault)
-    weekday, weekly = (a.weekly.split() + ["09:45"])[:2] if " " in a.weekly else ("sun", a.weekly)
+    weekday, weekly = (a.weekly.split() + ["10:00"])[:2] if " " in a.weekly else ("sun", a.weekly)
 
     # configs
     mc = json.loads((ASSETS / "memory-config.example.json").read_text())
+    mc["promote"].pop("reviewed", None)       # written below only when review is on (spec 2026-11-11)
     mc.update({"spec_version": spec_version(), "owner": a.owner, "agent": name, "model_cmd": model_cmd,
                "store_dir": "Store", "slug": slug})
     mc["promote"].update({"enabled": bool(model_cmd), "mode": "dry-run", "apply_after": apply_after,
-                          "require_review": a.require_review == "yes", "reviewed": False,
+                          "require_review": a.require_review == "yes",
                           "sources": ["journal", "timeline"] if cli else ["journal"],
                           "off_limits": a.off_limits if a.off_limits != "none" else "(?!x)x",
                           "off_limits_words": "the topics in promote.off_limits" if a.off_limits != "none"
                           else "no extra topics (credentials are always redacted)",
                           "journal_glob": "Journal/{date}.md", "maestro_cli": (cli or [None])[-1]})
+    if a.require_review == "yes":
+        mc["promote"]["reviewed"] = False
     mc["smoke"]["enabled"] = bool(model_cmd)
     rules_dir = vault / ".claude" / "rules"
     instr_rel = os.path.relpath(P["INSTRUCTIONS"], vault)
@@ -701,11 +704,14 @@ def apply(p: dict, out: Path) -> int:
         cue_write(p, P["VAULT"] / ".maestro" / "cue.yaml", tests_ok, log)
         rr = p["review_reminder"]
         sh([*cli, "cue", "schedule", "--cancel", rr["name"]])
-        msg = (f"Memory promotion review is due: read {p['paths']['MEMDIR']}/Promotions/, then set "
-               f"promote.reviewed to true in {p['paths']['MEMDIR']}/config.json.")
-        r = sh([*cli, "cue", "schedule", "--at", rr["at"], "--agent", aid, "--notify", "--message", msg,
-                "--name", rr["name"], "--label", "Memory review due", "--pipeline", "Memory"])
-        log(f"review reminder {rr['name']} at {rr['at']}: exit {r.returncode}")
+        if p["memory_config"]["promote"].get("require_review"):
+            msg = (f"Memory promotion review is due: read {p['paths']['MEMDIR']}/Promotions/, then set "
+                   f"promote.reviewed to true in {p['paths']['MEMDIR']}/config.json.")
+            r = sh([*cli, "cue", "schedule", "--at", rr["at"], "--agent", aid, "--notify", "--message", msg,
+                    "--name", rr["name"], "--label", "Memory review due", "--pipeline", "Memory"])
+            log(f"review reminder {rr['name']} at {rr['at']}: exit {r.returncode}")
+        else:
+            log("no review reminder: promote.require_review is false")
     else:
         (out / "MEMORY_MANUAL_STEPS.md").write_text(
             "# Manual steps (no Maestro)\n\nAdd to your agent's per-message prompt:\n\n" + p["capture"]["nudge_line"]
@@ -921,10 +927,10 @@ def main(argv=None) -> int:
     ap.add_argument("--slug")
     ap.add_argument("--content-folders", default="auto")
     ap.add_argument("--timezone", default="auto")
-    ap.add_argument("--nightly", default="03:15")
-    ap.add_argument("--weekly", default="sun 09:45")
+    ap.add_argument("--nightly", default="02:30")
+    ap.add_argument("--weekly", default="sun 10:00")
     ap.add_argument("--review-days", type=int, default=7)
-    ap.add_argument("--require-review", type=yes_no, default="yes")
+    ap.add_argument("--require-review", type=yes_no, default="no")      # spec 2026-11-11: off by default
     ap.add_argument("--off-limits", default="none")
     ap.add_argument("--dream", choices=["auto", "yes", "no"], default="auto")
     ap.add_argument("--search", choices=["qmd", "none"], default="qmd")
